@@ -18,7 +18,9 @@ const prop = (c: C, n: string) => c.properties.find((p) => p.name === n)?.value;
 
 const report = await buildReport([], true);
 const bom = renderCbom(report) as { components: C[]; serialNumber: string };
-const by = (addr: string) => bom.components.filter((c) => prop(c, 'edgepq:address') === addr);
+/* Addresses repeat across rule fixtures (every pass.tf has a symmetric key),
+   so the inventory fixture is the one place a lookup by address is unique. */
+const by = (addr: string) => bom.components.filter((c) => prop(c, 'edgepq:address') === addr && /inventory\/main\.tf$/.test(prop(c, 'edgepq:origin') ?? ''));
 const one = (addr: string) => { const l = by(addr); assert.equal(l.length, 1, addr); return l[0] as C; };
 
 test('the CBOM validates against the CycloneDX 1.6 schema', () => {

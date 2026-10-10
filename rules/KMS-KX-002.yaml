@@ -1,0 +1,27 @@
+id: KMS-KX-002
+title: KMS key agreement key derives shared secrets with classical ECDH only
+resource_types: [aws_kms_key]
+category: key-exchange
+severity: medium
+applies_when:
+  attr: key_usage
+  eq: KEY_AGREEMENT
+pass_when:
+  # No KMS key spec offers a post-quantum key agreement; nothing passes today.
+  attr: customer_master_key_spec
+  matches: "^ML_KEM_"
+fix:
+  kind: guidance
+  safety: none
+  note: "KMS supports only ECDH (SP 800-56A) for DeriveSharedSecret, with NIST P-256, P-384, P-521 and SM2 keys. There is no ML-KEM key spec. If the derived secrets protect data that must outlive a cryptographically relevant quantum computer, the key agreement needs to move out of KMS to a library that offers ML-KEM or a hybrid, or the data needs to be protected under a symmetric KMS key instead."
+message:
+  fail: "{address} is a KEY_AGREEMENT key ({customer_master_key_spec}). KMS derives shared secrets with classical ECDH only, so a recorded exchange can be recovered later; KMS offers no post-quantum alternative for this key usage."
+  pass: "{address} uses a post-quantum key agreement spec."
+  unknown: "{address}: key_usage or customer_master_key_spec could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
+    verified: 2026-10-10
+    quote: "If you're creating an asymmetric KMS key to derive shared secrets, use one of the NIST-standard elliptic curve key specs (except ECC_SECG_P256K1 and ECC_NIST_EDWARDS25519). The only supported key agreement algorithm for deriving shared secrets is the Elliptic Curve Cryptography Cofactor Diffie-Hellman Primitive (ECDH)."
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
+    verified: 2026-10-10
+    quote: "AWS KMS supports the following key specs for KMS keys: SYMMETRIC_DEFAULT; RSA_2048, RSA_3072, RSA_4096; ECC_NIST_P256, ECC_NIST_P384, ECC_NIST_P521, ECC_NIST_EDWARDS25519, ECC_SECG_P256K1; SM2; HMAC_224, HMAC_256, HMAC_384, HMAC_512; ML_DSA_44, ML_DSA_65, ML_DSA_87."

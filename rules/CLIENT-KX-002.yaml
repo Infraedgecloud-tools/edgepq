@@ -1,0 +1,27 @@
+id: CLIENT-KX-002
+title: Lambda function pins a Parameters and Secrets extension version that predates ML-KEM
+resource_types: [aws_lambda_function]
+category: client
+severity: low
+applies_when:
+  attr: layers[*]
+  matches: ":layer:AWS-Parameters-and-Secrets-Lambda-Extension(-Arm64)?:[0-9]+$"
+pass_when:
+  not:
+    attr: layers[*]
+    matches: ":layer:AWS-Parameters-and-Secrets-Lambda-Extension(-Arm64)?:([1-9]|1[0-8])$"
+fix:
+  kind: guidance
+  safety: none
+  note: "Pin the layer to version 19 or later for your region and architecture, or resolve the latest ARN from the public SSM parameter /aws/service/aws-parameters-and-secrets-lambda-extension/x86/latest (or .../arm64/latest). The extension then negotiates ML-KEM with Secrets Manager by default."
+message:
+  fail: "{address} attaches the AWS Parameters and Secrets Lambda Extension at a layer version below 19 ({layers[*]}). Versions 19 and later negotiate hybrid post-quantum TLS to Secrets Manager by default; this one does not."
+  pass: "{address} attaches the AWS Parameters and Secrets Lambda Extension at version 19 or later ({layers[*]}), which negotiates ML-KEM with Secrets Manager by default."
+  unknown: "{address}: the layer list is not a literal, so the extension version could not be checked offline."
+sources:
+  - url: https://aws.amazon.com/about-aws/whats-new/2026/04/aws-secrets-manager-post-quantum-tls/
+    verified: 2026-10-10
+    quote: "This protection is automatically enabled in Secrets Manager Agent (version 2.0.0+), AWS Lambda Extension (version 19+), and AWS Secrets and Configuration Provider (version 2.0.0+). Posted on: Apr 14, 2026."
+  - url: https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
+    verified: 2026-10-10
+    quote: "arn:aws:lambda:eu-west-2:133256977650:layer:AWS-Parameters-and-Secrets-Lambda-Extension:123 ... arn:aws:lambda:eu-west-2:133256977650:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:123 ... /aws/service/aws-parameters-and-secrets-lambda-extension/x86/latest"

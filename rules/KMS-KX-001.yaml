@@ -1,0 +1,36 @@
+id: KMS-KX-001
+title: KMS asymmetric encryption key uses RSA, whose ciphertexts can be decrypted later
+resource_types: [aws_kms_key]
+category: key-exchange
+severity: medium
+applies_when:
+  attr: key_usage
+  eq: ENCRYPT_DECRYPT
+pass_when:
+  not:
+    attr: customer_master_key_spec
+    matches: "^RSA_"
+defaults:
+  key_usage: ENCRYPT_DECRYPT
+  customer_master_key_spec: SYMMETRIC_DEFAULT
+fix:
+  kind: guidance
+  safety: none
+  note: "KMS has no post-quantum key spec for public-key encryption. Data that must stay confidential beyond the arrival of a cryptographically relevant quantum computer belongs under a symmetric KMS key (AES-256-GCM) with envelope encryption, where the public-key step is removed. A key spec cannot be changed; this means a new key and a re-encryption of ciphertexts that matter."
+message:
+  fail: "{address} is an RSA key ({customer_master_key_spec}) used for ENCRYPT_DECRYPT. Anything encrypted to its public key is recoverable once RSA is broken, so long-lived ciphertexts are the harvest-now-decrypt-later exposure here."
+  pass: "{address} encrypts with {customer_master_key_spec}; symmetric AES-256-GCM is not weakened in a way that matters by known quantum attacks."
+  unknown: "{address}: key_usage or customer_master_key_spec could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
+    verified: 2026-10-10
+    quote: "RSA key specs (encryption and decryption -or- signing and verification): RSA_2048, RSA_3072, RSA_4096. ML-DSA key specs: ML_DSA_44, ML_DSA_65, ML_DSA_87."
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
+    verified: 2026-10-10
+    quote: "Data encrypted under AES-256-GCM is protected now and in the future. Cryptographers consider this algorithm to be quantum resistant. Theoretical future, large-scale quantum computing attacks on ciphertexts created under 256-bit AES-GCM keys reduce the effective security of the key to 128 bits."
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/pqtls.html
+    verified: 2026-10-10
+    quote: "Otherwise, an adversary may be able to capture data encrypted with classic cipher suites today and decrypt it once quantum computers become available. This strategy is known as harvest now, decrypt later."
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/kms_key.html.markdown
+    verified: 2026-10-10
+    quote: "customer_master_key_spec ... Defaults to SYMMETRIC_DEFAULT. key_usage ... Defaults to ENCRYPT_DECRYPT."

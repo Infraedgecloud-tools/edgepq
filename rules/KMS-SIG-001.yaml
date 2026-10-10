@@ -1,0 +1,29 @@
+id: KMS-SIG-001
+title: KMS signing key uses a classical signature algorithm
+resource_types: [aws_kms_key]
+category: signature
+severity: low
+applies_when:
+  attr: key_usage
+  eq: SIGN_VERIFY
+pass_when:
+  attr: customer_master_key_spec
+  matches: "^ML_DSA_"
+fix:
+  kind: guidance
+  safety: none
+  note: "KMS offers ML_DSA_44, ML_DSA_65 and ML_DSA_87 (FIPS 204) with the ML_DSA_SHAKE_256 signing algorithm, in FIPS 140-3 Level 3 HSMs. A key spec cannot be changed, so this is a new key, and every verifier of its signatures must support ML-DSA first. Signatures that only need to be trusted today are not at risk from a future quantum computer; signatures that must still verify in years (firmware, long-lived documents, roots of trust) are the ones to move."
+message:
+  fail: "{address} signs with {customer_master_key_spec}. Existing signatures stay valid until a cryptographically relevant quantum computer exists; what matters is whether this key's signatures must remain trustworthy after that. KMS already offers ML-DSA key specs."
+  pass: "{address} signs with {customer_master_key_spec}, a FIPS 204 ML-DSA key spec. Verifiers need ML-DSA support."
+  unknown: "{address}: key_usage or customer_master_key_spec could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/mldsa.html
+    verified: 2026-10-10
+    quote: "AWS KMS creates and protects all ML-DSA keys and signature operations in FIPS 140-3 Security Level 3 validated hardware security modules. To help balance security with performance, ML-DSA in AWS KMS offers three distinct security levels through different key specifications, ML_DSA_44, ML_DSA_65, and ML_DSA_87."
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
+    verified: 2026-10-10
+    quote: "AWS KMS supports the ML_DSA_SHAKE_256 signing algorithm for all of the ML-DSA key specs."
+  - url: https://aws.amazon.com/about-aws/whats-new/2025/06/aws-kms-post-quantum-ml-dsa-digital-signatures
+    verified: 2026-10-10
+    quote: "AWS Key Management Service (KMS) now supports the FIPS 204 Module-Lattice Digital Signature Standard (MLDSA) ... introduces three new key specs (ML_DSA_44, ML_DSA_65, and ML_DSA_87). Posted on: Jun 13, 2025."

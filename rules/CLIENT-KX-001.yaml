@@ -1,0 +1,37 @@
+# Evaluated on a synthetic resource the AWS scanner builds from CloudTrail:
+# one `edgepq_cloudtrail_tls_sample` per (account, region, service) with the
+# counts of recent API calls by key exchange. Terraform never contains one; the
+# fixtures use the same resource type so the harness can exercise the rule.
+id: CLIENT-KX-001
+title: Clients still negotiate classical key exchange with a service that offers ML-KEM
+resource_types: [edgepq_cloudtrail_tls_sample]
+category: client
+severity: medium
+applies_when:
+  not:
+    attr: events_sampled
+    eq: 0
+pass_when:
+  attr: classical_count
+  eq: 0
+fix:
+  kind: guidance
+  safety: none
+  note: "The service endpoint already offers ML-KEM; the client decides. Upgrade paths AWS documents: Node.js 22.20 or 24.9 and later; Go 1.24 and later; AWS CLI v2.34.54 and later on Linux; Java SDK v2.35.11 and later with the CRT HTTP client, or JDK 27; Rust SDK clients published after 29 August 2025; Kotlin 1.5.78 and later on Linux; Python, PHP, Ruby, .NET on Linux need OpenSSL 3.5 or later, and on Amazon Linux 2023 also `update-crypto-policies --set DEFAULT:PQ`. Verify by watching tlsDetails.keyExchange in CloudTrail turn to X25519MLKEM768."
+message:
+  fail: "{service} in {account}/{region}: of {events_sampled} recent calls sampled from CloudTrail, {classical_count} negotiated a classical key exchange and {hybrid_count} negotiated ML-KEM. User agents on classical: {user_agents_classical}."
+  pass: "{service} in {account}/{region}: all {events_sampled} sampled calls negotiated ML-KEM hybrid key exchange."
+  unknown: "{service} in {account}/{region}: the CloudTrail sample could not be read."
+sources:
+  - url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html
+    verified: 2026-10-10
+    quote: "keyExchange - The key exchange method used in the TLS handshake. This field indicates whether the connection used classical cryptography or post-quantum cryptography. Example values include X25519MLKEM768 for post-quantum TLS 1.3, x25519 for classical TLS 1.3, and secp256r1 for TLS 1.2."
+  - url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html
+    verified: 2026-10-10
+    quote: "The tlsDetails field is not present if the API call was made by an AWS service on your behalf."
+  - url: https://docs.aws.amazon.com/sdkref/latest/guide/pqtls-details.html
+    verified: 2026-10-10
+    quote: "As of Node.js v22.20 (LTS) and v24.9.0, Node.js statically links and bundles OpenSSL 3.5. ... Golang supports and prefers PQ TLS as of v1.24 ... As of v2.35.11, the AwsCrtHttpClient enables and prefers PQ TLS by default ... As of v2.34.54, the AWS CLI installer for Linux bundles OpenSSL 3.5.6 ... The consolidated SDK released PQ TLS preference on 8/29/25 ... The Kotlin SDK supports and prefers PQ TLS on Linux as of v1.5.78 ... For Amazon Linux 2023 (AL2023.12 or higher), enable PQ TLS with: sudo update-crypto-policies --set DEFAULT:PQ"
+  - url: https://aws.amazon.com/blogs/security/ml-kem-post-quantum-tls-now-supported-in-aws-kms-acm-and-secrets-manager/
+    verified: 2026-10-10
+    quote: "AWS Key Management Service (AWS KMS), AWS Certificate Manager (ACM), and AWS Secrets Manager endpoints now support Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM) for hybrid post-quantum key agreement in non-FIPS endpoints in all AWS Regions in the aws partition. (7 April 2025)"
