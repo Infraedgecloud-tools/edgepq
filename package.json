@@ -14,7 +14,8 @@
   "scripts": {
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts' 'test/**/*.test.ts'",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "build:web": "node --experimental-strip-types scripts/build-web.ts"
   },
   "dependencies": {
     "@cdktf/hcl2json": "^0.21.0",
@@ -38,6 +39,7 @@
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "typescript": "5.9.3",
-    "aws-sdk-client-mock": "4.1.0"
+    "aws-sdk-client-mock": "4.1.0",
+    "esbuild": "0.28.2"
   }
 }
