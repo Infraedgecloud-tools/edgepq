@@ -26,7 +26,7 @@ fix:
 message:
   fail: "{address} serves its default execute-api endpoint with {security_policy}: classical key exchange only. SecurityPolicy_TLS13_1_2_PQ_2025_09 adds hybrid post-quantum key exchange."
   pass: "{address} serves its default endpoint with {security_policy}, which offers hybrid post-quantum key exchange."
-  unknown: "{address}: security_policy or the endpoint type is {security_policy}, so it could not be checked offline."
+  unknown: "{address}: security_policy or the endpoint type is not a literal value, so it could not be checked offline. Run the scan on a plan, or on the account, to see the value."
 sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
     verified: 2026-10-10

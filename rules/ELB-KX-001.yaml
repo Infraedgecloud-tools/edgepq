@@ -25,7 +25,7 @@ fix:
 message:
   fail: "{address} terminates TLS with {ssl_policy}, which negotiates classical key exchange only. Traffic recorded today can be decrypted later by a cryptographically relevant quantum computer (harvest now, decrypt later). A policy with PQ in its name adds X25519MLKEM768, SecP256r1MLKEM768 and SecP384r1MLKEM1024 for clients that offer them."
   pass: "{address} uses {ssl_policy}, which offers hybrid post-quantum key exchange to clients that support ML-KEM. Whether a given client gets it depends on that client; the listener's connection logs record the key exchange used."
-  unknown: "{address}: ssl_policy is {ssl_policy}, so the policy could not be checked offline. Run the scan on a plan, or on the account, to see the value."
+  unknown: "{address}: ssl_policy is not a literal value, so the policy could not be checked offline. Run the scan on a plan, or on the account, to see the value."
 sources:
   - url: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
     verified: 2026-10-10

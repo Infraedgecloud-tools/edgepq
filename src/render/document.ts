@@ -49,6 +49,12 @@ function inputItems(input: ScanInput): { label: string; items: string[] }[] {
   return [{ label: 'File scanned', items: [input.file] }, { label: 'Skipped', items: input.skipped.map((s) => `${s.address}: ${s.reason}`) }];
 }
 
+/* Two quotes from one page are two sources in the rule and one line here. */
+function dedupe(sources: { url: string; verified: string }[]): { url: string; verified: string }[] {
+  const seen = new Set<string>();
+  return sources.filter((s) => (seen.has(s.url) ? false : (seen.add(s.url), true)));
+}
+
 export function buildDoc(report: ScanReport): Doc {
   const kind = { hcl: 'Terraform source files', plan: 'a Terraform plan', state: 'Terraform state', aws: 'a live AWS account scan' }[report.input.kind];
   const counts = GROUPS.map((g) => report.findings.filter((f) => f.status === g.status).length);
@@ -65,7 +71,7 @@ export function buildDoc(report: ScanReport): Doc {
       findings: report.findings.filter((f) => f.status === g.status).map((f) => ({
         id: f.id, heading: `${f.rule.id} · ${f.resource.address}`, severity: f.rule.severity, category: f.rule.category, message: f.message,
         observed: Object.entries(f.observed).map(([attr, o]) => ({ attr, value: o.unknown ? '(not known offline)' : show(o.value), defaulted: o.defaulted === true })),
-        fix: fixLines(f), sources: f.sources.map((s) => ({ url: s.url, verified: s.verified })),
+        fix: fixLines(f), sources: dedupe(f.sources.map((s) => ({ url: s.url, verified: s.verified }))),
       })),
     })),
     coverage: [{ label: 'Input', items: [report.input.kind] }, ...inputItems(report.input), { label: 'Not covered', items: [...NOT_COVERED] }],

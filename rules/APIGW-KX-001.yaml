@@ -22,7 +22,7 @@ fix:
 message:
   fail: "{address} negotiates TLS with {security_policy}, a legacy policy with classical key exchange only. Policies containing PQ add hybrid post-quantum key exchange for clients that offer it."
   pass: "{address} uses {security_policy}, which offers hybrid post-quantum key exchange. Clients without ML-KEM support still negotiate classically."
-  unknown: "{address}: security_policy or the endpoint type is {security_policy}, so it could not be checked offline."
+  unknown: "{address}: security_policy or the endpoint type is not a literal value, so it could not be checked offline. Run the scan on a plan, or on the account, to see the value."
 sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
     verified: 2026-10-10
