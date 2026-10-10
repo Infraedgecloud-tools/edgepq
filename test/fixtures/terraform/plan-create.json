@@ -1,0 +1,612 @@
+{
+ "format_version": "1.2",
+ "terraform_version": "1.15.5",
+ "variables": {
+  "policy": {
+   "value": "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09"
+  }
+ },
+ "resource_changes": [
+  {
+   "address": "aws_api_gateway_domain_name.api",
+   "mode": "managed",
+   "type": "aws_api_gateway_domain_name",
+   "name": "api",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "certificate_arn": null,
+     "certificate_body": null,
+     "certificate_chain": null,
+     "certificate_name": null,
+     "certificate_private_key": null,
+     "domain_name": "api.example.com",
+     "endpoint_access_mode": null,
+     "endpoint_configuration": [
+      {
+       "types": [
+        "REGIONAL"
+       ]
+      }
+     ],
+     "mutual_tls_authentication": [],
+     "policy": null,
+     "region": "eu-west-2",
+     "regional_certificate_arn": "arn:aws:acm:eu-west-2:123456789012:certificate/00000000-0000-0000-0000-000000000000",
+     "regional_certificate_name": null,
+     "security_policy": "TLS_1_2",
+     "tags": null,
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "certificate_upload_date": true,
+     "cloudfront_domain_name": true,
+     "cloudfront_zone_id": true,
+     "domain_name_id": true,
+     "endpoint_configuration": [
+      {
+       "ip_address_type": true,
+       "types": [
+        false
+       ]
+      }
+     ],
+     "id": true,
+     "mutual_tls_authentication": [],
+     "ownership_verification_certificate_arn": true,
+     "regional_domain_name": true,
+     "regional_zone_id": true,
+     "routing_mode": true,
+     "tags_all": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "certificate_private_key": true,
+     "endpoint_configuration": [
+      {
+       "types": [
+        false
+       ]
+      }
+     ],
+     "mutual_tls_authentication": [],
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_kms_key.rsa_encrypt",
+   "mode": "managed",
+   "type": "aws_kms_key",
+   "name": "rsa_encrypt",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bypass_policy_lockout_safety_check": false,
+     "custom_key_store_id": null,
+     "customer_master_key_spec": "RSA_2048",
+     "deletion_window_in_days": null,
+     "description": "RSA key used for encryption",
+     "enable_key_rotation": false,
+     "is_enabled": true,
+     "key_usage": "ENCRYPT_DECRYPT",
+     "region": "eu-west-2",
+     "tags": null,
+     "timeouts": null,
+     "xks_key_id": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "id": true,
+     "key_id": true,
+     "multi_region": true,
+     "policy": true,
+     "rotation_period_in_days": true,
+     "tags_all": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "tags_all": {}
+    },
+    "after_identity": {
+     "account_id": null,
+     "id": null,
+     "region": null
+    }
+   }
+  },
+  {
+   "address": "aws_kms_key.symmetric",
+   "mode": "managed",
+   "type": "aws_kms_key",
+   "name": "symmetric",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bypass_policy_lockout_safety_check": false,
+     "custom_key_store_id": null,
+     "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+     "deletion_window_in_days": null,
+     "description": "AES key",
+     "enable_key_rotation": false,
+     "is_enabled": true,
+     "key_usage": "ENCRYPT_DECRYPT",
+     "region": "eu-west-2",
+     "tags": null,
+     "timeouts": null,
+     "xks_key_id": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "id": true,
+     "key_id": true,
+     "multi_region": true,
+     "policy": true,
+     "rotation_period_in_days": true,
+     "tags_all": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "tags_all": {}
+    },
+    "after_identity": {
+     "account_id": null,
+     "id": null,
+     "region": null
+    }
+   }
+  },
+  {
+   "address": "aws_lb.app",
+   "mode": "managed",
+   "type": "aws_lb",
+   "name": "app",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "access_logs": [],
+     "client_keep_alive": 3600,
+     "connection_logs": [],
+     "customer_owned_ipv4_pool": null,
+     "desync_mitigation_mode": "defensive",
+     "dns_record_client_routing_policy": null,
+     "drop_invalid_header_fields": false,
+     "enable_cross_zone_load_balancing": null,
+     "enable_deletion_protection": false,
+     "enable_http2": true,
+     "enable_tls_version_and_cipher_suite_headers": false,
+     "enable_waf_fail_open": false,
+     "enable_xff_client_port": false,
+     "enable_zonal_shift": false,
+     "health_check_logs": [],
+     "idle_timeout": 60,
+     "ipam_pools": [],
+     "load_balancer_type": "application",
+     "minimum_load_balancer_capacity": [],
+     "name": "app",
+     "preserve_host_header": false,
+     "region": "eu-west-2",
+     "subnets": [
+      "subnet-0123456789abcdef0",
+      "subnet-0123456789abcdef1"
+     ],
+     "tags": null,
+     "timeouts": null,
+     "xff_header_processing_mode": "append"
+    },
+    "after_unknown": {
+     "access_logs": [],
+     "arn": true,
+     "arn_suffix": true,
+     "connection_logs": [],
+     "dns_name": true,
+     "enable_prefix_for_ipv6_source_nat": true,
+     "enforce_security_group_inbound_rules_on_private_link_traffic": true,
+     "health_check_logs": [],
+     "id": true,
+     "internal": true,
+     "ip_address_type": true,
+     "ipam_pools": [],
+     "minimum_load_balancer_capacity": [],
+     "name_prefix": true,
+     "secondary_ips_auto_assigned_per_subnet": true,
+     "security_groups": true,
+     "subnet_mapping": true,
+     "subnets": [
+      false,
+      false
+     ],
+     "tags_all": true,
+     "vpc_id": true,
+     "zone_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "access_logs": [],
+     "connection_logs": [],
+     "health_check_logs": [],
+     "ipam_pools": [],
+     "minimum_load_balancer_capacity": [],
+     "security_groups": [],
+     "subnet_mapping": [],
+     "subnets": [
+      false,
+      false
+     ],
+     "tags_all": {}
+    },
+    "after_identity": {
+     "arn": null
+    }
+   }
+  },
+  {
+   "address": "aws_lb_listener.classical",
+   "mode": "managed",
+   "type": "aws_lb_listener",
+   "name": "classical",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "alpn_policy": null,
+     "certificate_arn": "arn:aws:acm:eu-west-2:123456789012:certificate/00000000-0000-0000-0000-000000000000",
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "redirect": [],
+       "type": "forward"
+      }
+     ],
+     "port": 443,
+     "protocol": "HTTPS",
+     "region": "eu-west-2",
+     "ssl_policy": "ELBSecurityPolicy-2016-08",
+     "tags": null,
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "order": true,
+       "redirect": [],
+       "target_group_arn": true
+      }
+     ],
+     "id": true,
+     "load_balancer_arn": true,
+     "mutual_authentication": true,
+     "routing_http_request_x_amzn_mtls_clientcert_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_issuer_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_leaf_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_subject_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_validity_header_name": true,
+     "routing_http_request_x_amzn_tls_cipher_suite_header_name": true,
+     "routing_http_request_x_amzn_tls_version_header_name": true,
+     "routing_http_response_access_control_allow_credentials_header_value": true,
+     "routing_http_response_access_control_allow_headers_header_value": true,
+     "routing_http_response_access_control_allow_methods_header_value": true,
+     "routing_http_response_access_control_allow_origin_header_value": true,
+     "routing_http_response_access_control_expose_headers_header_value": true,
+     "routing_http_response_access_control_max_age_header_value": true,
+     "routing_http_response_content_security_policy_header_value": true,
+     "routing_http_response_server_enabled": true,
+     "routing_http_response_strict_transport_security_header_value": true,
+     "routing_http_response_x_content_type_options_header_value": true,
+     "routing_http_response_x_frame_options_header_value": true,
+     "tags_all": true,
+     "tcp_idle_timeout_seconds": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "redirect": []
+      }
+     ],
+     "mutual_authentication": [],
+     "tags_all": {}
+    },
+    "after_identity": {
+     "arn": null
+    }
+   }
+  },
+  {
+   "address": "aws_lb_listener.plain",
+   "mode": "managed",
+   "type": "aws_lb_listener",
+   "name": "plain",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "alpn_policy": null,
+     "certificate_arn": null,
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "redirect": [],
+       "type": "forward"
+      }
+     ],
+     "port": 80,
+     "protocol": "HTTP",
+     "region": "eu-west-2",
+     "tags": null,
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "order": true,
+       "redirect": [],
+       "target_group_arn": true
+      }
+     ],
+     "id": true,
+     "load_balancer_arn": true,
+     "mutual_authentication": true,
+     "routing_http_request_x_amzn_mtls_clientcert_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_issuer_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_leaf_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_subject_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_validity_header_name": true,
+     "routing_http_request_x_amzn_tls_cipher_suite_header_name": true,
+     "routing_http_request_x_amzn_tls_version_header_name": true,
+     "routing_http_response_access_control_allow_credentials_header_value": true,
+     "routing_http_response_access_control_allow_headers_header_value": true,
+     "routing_http_response_access_control_allow_methods_header_value": true,
+     "routing_http_response_access_control_allow_origin_header_value": true,
+     "routing_http_response_access_control_expose_headers_header_value": true,
+     "routing_http_response_access_control_max_age_header_value": true,
+     "routing_http_response_content_security_policy_header_value": true,
+     "routing_http_response_server_enabled": true,
+     "routing_http_response_strict_transport_security_header_value": true,
+     "routing_http_response_x_content_type_options_header_value": true,
+     "routing_http_response_x_frame_options_header_value": true,
+     "ssl_policy": true,
+     "tags_all": true,
+     "tcp_idle_timeout_seconds": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "redirect": []
+      }
+     ],
+     "mutual_authentication": [],
+     "tags_all": {}
+    },
+    "after_identity": {
+     "arn": null
+    }
+   }
+  },
+  {
+   "address": "aws_lb_listener.pq",
+   "mode": "managed",
+   "type": "aws_lb_listener",
+   "name": "pq",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "alpn_policy": null,
+     "certificate_arn": "arn:aws:acm:eu-west-2:123456789012:certificate/00000000-0000-0000-0000-000000000000",
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "redirect": [],
+       "type": "forward"
+      }
+     ],
+     "port": 8443,
+     "protocol": "HTTPS",
+     "region": "eu-west-2",
+     "ssl_policy": "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09",
+     "tags": null,
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "order": true,
+       "redirect": [],
+       "target_group_arn": true
+      }
+     ],
+     "id": true,
+     "load_balancer_arn": true,
+     "mutual_authentication": true,
+     "routing_http_request_x_amzn_mtls_clientcert_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_issuer_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_leaf_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_subject_header_name": true,
+     "routing_http_request_x_amzn_mtls_clientcert_validity_header_name": true,
+     "routing_http_request_x_amzn_tls_cipher_suite_header_name": true,
+     "routing_http_request_x_amzn_tls_version_header_name": true,
+     "routing_http_response_access_control_allow_credentials_header_value": true,
+     "routing_http_response_access_control_allow_headers_header_value": true,
+     "routing_http_response_access_control_allow_methods_header_value": true,
+     "routing_http_response_access_control_allow_origin_header_value": true,
+     "routing_http_response_access_control_expose_headers_header_value": true,
+     "routing_http_response_access_control_max_age_header_value": true,
+     "routing_http_response_content_security_policy_header_value": true,
+     "routing_http_response_server_enabled": true,
+     "routing_http_response_strict_transport_security_header_value": true,
+     "routing_http_response_x_content_type_options_header_value": true,
+     "routing_http_response_x_frame_options_header_value": true,
+     "tags_all": true,
+     "tcp_idle_timeout_seconds": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "default_action": [
+      {
+       "authenticate_cognito": [],
+       "authenticate_oidc": [],
+       "fixed_response": [],
+       "forward": [],
+       "jwt_validation": [],
+       "redirect": []
+      }
+     ],
+     "mutual_authentication": [],
+     "tags_all": {}
+    },
+    "after_identity": {
+     "arn": null
+    }
+   }
+  },
+  {
+   "address": "aws_lb_target_group.tg",
+   "mode": "managed",
+   "type": "aws_lb_target_group",
+   "name": "tg",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "deregistration_delay": "300",
+     "lambda_multi_value_headers_enabled": false,
+     "name": "tg",
+     "port": 8080,
+     "protocol": "HTTP",
+     "proxy_protocol_v2": false,
+     "region": "eu-west-2",
+     "slow_start": 0,
+     "tags": null,
+     "target_control_port": null,
+     "target_type": "instance",
+     "vpc_id": "vpc-0123456789abcdef0"
+    },
+    "after_unknown": {
+     "arn": true,
+     "arn_suffix": true,
+     "connection_termination": true,
+     "health_check": true,
+     "id": true,
+     "ip_address_type": true,
+     "load_balancer_arns": true,
+     "load_balancing_algorithm_type": true,
+     "load_balancing_anomaly_mitigation": true,
+     "load_balancing_cross_zone_enabled": true,
+     "name_prefix": true,
+     "preserve_client_ip": true,
+     "protocol_version": true,
+     "stickiness": true,
+     "tags_all": true,
+     "target_failover": true,
+     "target_group_health": true,
+     "target_health_state": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "health_check": [],
+     "load_balancer_arns": [],
+     "stickiness": [],
+     "tags_all": {},
+     "target_failover": [],
+     "target_group_health": [],
+     "target_health_state": []
+    },
+    "after_identity": {
+     "arn": null
+    }
+   }
+  }
+ ],
+ "relevant_attributes": [
+  {
+   "resource": "aws_lb.app",
+   "attribute": [
+    "arn"
+   ]
+  },
+  {
+   "resource": "aws_lb_target_group.tg",
+   "attribute": [
+    "arn"
+   ]
+  }
+ ],
+ "timestamp": "2026-10-10T08:17:08Z",
+ "applyable": true,
+ "complete": true,
+ "errored": false
+}
