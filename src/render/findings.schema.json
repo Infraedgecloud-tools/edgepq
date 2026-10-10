@@ -1,0 +1,658 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://infraedge.org/schemas/edgepq-findings-1.json",
+  "title": "EdgePQ findings document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool",
+    "generated_at",
+    "input",
+    "summary",
+    "findings",
+    "coverage"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "edgepq"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "files",
+            "notes"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "hcl"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "notes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/coverageNote"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "file",
+            "skipped"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "plan",
+                "state"
+              ]
+            },
+            "file": {
+              "type": "string"
+            },
+            "skipped": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/skipped"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "accounts",
+            "regions",
+            "not_checked"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "aws"
+            },
+            "accounts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "regions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "not_checked": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/notChecked"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by_status",
+        "by_category",
+        "by_severity",
+        "resources_scanned",
+        "rules_run"
+      ],
+      "description": "by_category and by_severity count failing findings only.",
+      "properties": {
+        "by_status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fail",
+            "unknown",
+            "pass",
+            "not_applicable"
+          ],
+          "properties": {
+            "fail": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "not_applicable": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "by_category": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key-exchange",
+            "client",
+            "signature",
+            "inventory"
+          ],
+          "properties": {
+            "key-exchange": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "client": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "signature": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inventory": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info"
+          ],
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "info": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "resources_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rules_run": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "notes",
+        "skipped",
+        "not_checked",
+        "not_covered"
+      ],
+      "properties": {
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageNote"
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skipped"
+          }
+        },
+        "not_checked": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/notChecked"
+          }
+        },
+        "not_covered": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "skipped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "address",
+        "reason"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "notChecked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account",
+        "region",
+        "service",
+        "reason"
+      ],
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "coverageNote": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "address",
+            "file"
+          ],
+          "properties": {
+            "kind": {
+              "const": "module-call"
+            },
+            "address": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "address",
+            "file",
+            "block"
+          ],
+          "properties": {
+            "kind": {
+              "const": "dynamic-block"
+            },
+            "address": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "block": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "file",
+            "message"
+          ],
+          "properties": {
+            "kind": {
+              "const": "parse-error"
+            },
+            "file": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ]
+    },
+    "category": {
+      "enum": [
+        "key-exchange",
+        "client",
+        "signature",
+        "inventory"
+      ]
+    },
+    "safety": {
+      "enum": [
+        "auto",
+        "review",
+        "none"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "verified"
+      ],
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "verified": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "quote": {
+          "type": "string"
+        }
+      }
+    },
+    "origin": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "file"
+          ],
+          "properties": {
+            "kind": {
+              "const": "hcl"
+            },
+            "file": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "plan"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "account",
+            "region"
+          ],
+          "properties": {
+            "kind": {
+              "const": "aws"
+            },
+            "account": {
+              "type": "string"
+            },
+            "region": {
+              "type": "string"
+            },
+            "arn": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "fix": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "attr",
+            "value",
+            "safety"
+          ],
+          "properties": {
+            "kind": {
+              "const": "set-attribute"
+            },
+            "attr": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            },
+            "safety": {
+              "$ref": "#/$defs/safety"
+            },
+            "note": {
+              "type": "string"
+            },
+            "also_set": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "note",
+            "safety"
+          ],
+          "properties": {
+            "kind": {
+              "const": "guidance"
+            },
+            "note": {
+              "type": "string"
+            },
+            "safety": {
+              "const": "none"
+            }
+          }
+        }
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rule",
+        "status",
+        "resource",
+        "observed",
+        "message",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "title",
+            "category",
+            "severity"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "category": {
+              "$ref": "#/$defs/category"
+            },
+            "severity": {
+              "$ref": "#/$defs/severity"
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "fail",
+            "pass",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "resource": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "address",
+            "origin"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "address": {
+              "type": "string"
+            },
+            "origin": {
+              "$ref": "#/$defs/origin"
+            }
+          }
+        },
+        "observed": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {},
+              "defaulted": {
+                "const": true
+              },
+              "unknown": {
+                "const": true
+              }
+            }
+          }
+        },
+        "message": {
+          "type": "string"
+        },
+        "fix": {
+          "$ref": "#/$defs/fix"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        }
+      }
+    }
+  }
+}
