@@ -25,7 +25,7 @@ test('rendered JSON validates against findings.schema.json and round-trips', asy
   assert.equal(doc.summary.resources_scanned, report.resources.length);
   assert.equal(doc.summary.rules_run, report.rules.length);
   const s = doc.summary.by_status;
-  assert.equal(s.fail + s.unknown + s.pass + s.not_applicable, report.findings.length);
+  assert.equal(s.fail + s.not_configurable + s.unknown + s.pass + s.not_applicable, report.findings.length);
   assert.ok(s.fail > 0 && s.pass > 0 && s.unknown > 0, 'fixtures cover all three statuses');
 });
 

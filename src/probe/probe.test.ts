@@ -56,7 +56,8 @@ test('classical-only server: classical_only', async () => {
   assert.equal(r.hybrid_only_offer.outcome, 'alert');
   assert.equal(r.hybrid_only_offer.alert?.name, 'handshake_failure');
   assert.equal(r.handshakes.find((h) => h.group === 'X25519')?.completed, true);
-  assert.ok(r.handshakes.filter((h) => h.group !== 'X25519').every((h) => !h.completed));
+  assert.equal(r.handshakes.find((h) => h.group === 'P-256')?.completed, true);
+  assert.ok(r.handshakes.filter((h) => h.group !== 'X25519' && h.group !== 'P-256').every((h) => !h.completed));
 });
 
 test('TLS 1.2-only server: tls_1_2_only with no group', async () => {
@@ -97,24 +98,53 @@ test('output never claims safety or compliance', async () => {
 const sh = (o: Partial<HelloOutcome>): HelloOutcome => ({ outcome: 'server_hello', tls_version: '1.3', ...o });
 const hs = (group: string, completed: boolean, extra: Partial<HandshakeResult> = {}): HandshakeResult => ({ group, completed, ...extra });
 
-test('decide: raw and Node disagreement is reported', () => {
+test('decide: a raw hybrid selection that no real-key handshake confirms is inconclusive', () => {
   const d = decide(
     sh({ group: { code: 4588, name: 'X25519MLKEM768' } }),
     sh({ group: { code: 4588, name: 'X25519MLKEM768' } }),
     [hs('X25519MLKEM768', false, { error: 'boom' }), hs('X25519', true)],
   );
-  assert.equal(d.verdict, 'hybrid_selected');
+  assert.equal(d.verdict, 'inconclusive');
   assert.match(d.notes.join('\n'), /Disagreement/);
 });
 
-test('decide: a group Node cannot test is not read as server rejection', () => {
+test('decide: real-key hybrid handshakes outrank a raw hello that got TLS 1.2 or nothing', () => {
+  const tls12 = decide(sh({ tls_version: '1.2' }), { outcome: 'timeout' }, [hs('X25519MLKEM768', true), hs('X25519', true)]);
+  assert.equal(tls12.verdict, 'hybrid_supported_not_preferred');
+  const blocked = decide({ outcome: 'error', error: 'ECONNRESET' }, { outcome: 'error', error: 'ECONNRESET' }, [hs('X25519MLKEM768', true), hs('P-256', true)]);
+  assert.equal(blocked.verdict, 'hybrid_supported_not_preferred');
+  assert.match(blocked.notes.join('\n'), /was not observed/);
+});
+
+test('decide: a pure ML-KEM group is never called classical', () => {
+  const d = decide(sh({ group: { code: 513, name: 'MLKEM768' } }), { outcome: 'timeout' }, [hs('X25519MLKEM768', false), hs('X25519', true)]);
+  assert.equal(d.verdict, 'inconclusive');
+});
+
+test('decide: a raw hybrid selection without a hybrid-capable Node is reported as resting on the hello alone', () => {
+  const d = decide(sh({ group: { code: 4588, name: 'X25519MLKEM768' } }), sh({ group: { code: 4588, name: 'X25519MLKEM768' } }), [hs('X25519MLKEM768', false, { not_testable: true }), hs('X25519', true)]);
+  assert.equal(d.verdict, 'hybrid_selected');
+  assert.match(d.notes.join('\n'), /rests on the hand-built hellos alone/);
+});
+
+test('decide: an alert with no testable hybrid group is inconclusive, not classical', () => {
   const d = decide(
     sh({ group: { code: 29, name: 'x25519' } }),
     { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } },
     [hs('SecP384r1MLKEM1024', false, { not_testable: true }), hs('X25519', true)],
   );
-  assert.equal(d.verdict, 'classical_only');
+  assert.equal(d.verdict, 'inconclusive');
+  assert.ok(d.notes.some((n) => n.includes('placeholder share')));
   assert.ok(!d.notes.some((n) => n.startsWith('Disagreement')));
+});
+
+test('decide: an alert with a testable hybrid group that failed is classical only', () => {
+  const d = decide(
+    sh({ group: { code: 29, name: 'x25519' } }),
+    { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } },
+    [hs('X25519MLKEM768', false), hs('SecP384r1MLKEM1024', false, { not_testable: true }), hs('X25519', true)],
+  );
+  assert.equal(d.verdict, 'classical_only');
 });
 
 test('decide: a completed Node hybrid handshake alone upgrades classical to supported', () => {

@@ -19,7 +19,7 @@ export type Doc = {
 };
 
 export const GROUPS: { status: Status; label: string }[] = [
-  { status: 'fail', label: 'Failed' }, { status: 'unknown', label: 'Could not check' }, { status: 'pass', label: 'Already enabled' },
+  { status: 'fail', label: 'Failed' }, { status: 'not_configurable', label: 'Not configurable' }, { status: 'unknown', label: 'Could not check' }, { status: 'pass', label: 'Already enabled' },
 ];
 const show = (v: unknown): string => (v === undefined ? '(absent)' : typeof v === 'string' ? v : JSON.stringify(v));
 
@@ -35,7 +35,9 @@ function inputItems(input: ScanInput): { label: string; items: string[] }[] {
   if (input.kind === 'hcl') {
     return [
       { label: 'Files scanned', items: input.files },
-      { label: 'Notes', items: input.notes.map((n) => n.kind === 'module-call' ? `${n.address} (${n.file}) is a module call${n.source ? ` of ${n.source}` : ''}; its resources were not scanned.`
+      { label: 'Patches not written', items: (input.patches_skipped ?? []).map((s) => `${s.ruleId} ${s.address}: ${s.reason}. A change by hand is still needed.`) },
+      { label: 'Notes', items: input.notes.map((n) => n.kind === 'module-call' ? `${n.address} (${n.file}) is a module call${n.source ? ` of ${n.source}` : ''}; the values it passes in were not applied, and a module from a registry or remote source was not scanned.`
+        : n.kind === 'count-zero' ? `${n.address} (${n.file}) has count = 0, so nothing is created; not checked.`
         : n.kind === 'dynamic-block' ? `${n.address} (${n.file}) generates "${n.block}" blocks at plan time; they were not read.`
         : `${n.file} could not be parsed: ${n.message}`) },
     ];

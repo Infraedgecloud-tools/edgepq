@@ -35,8 +35,8 @@ function fromPlan(changes: unknown[]): PlanScan {
       continue;
     }
     const after = isObj(change.after) ? change.after : {};
-    const unknown = unknownPaths(change.after_unknown, '');
-    out.resources.push({ type: rc.type, address: rc.address, attrs: after as Resource['attrs'], unknown, origin: { kind: 'plan' } });
+    const unknown = change.after_unknown === true ? ['*'] : unknownPaths(change.after_unknown, '');
+    out.resources.push({ type: rc.type, address: rc.address, attrs: withoutNulls(after) as Resource['attrs'], unknown, origin: { kind: 'plan' } });
   }
   return out;
 }
@@ -47,11 +47,23 @@ function fromState(root: Json): PlanScan {
     for (const r of Array.isArray(mod.resources) ? mod.resources : []) {
       if (!isObj(r) || typeof r.address !== 'string' || typeof r.type !== 'string' || r.mode !== 'managed') continue;
       const values = isObj(r.values) ? r.values : {};
-      out.resources.push({ type: r.type, address: r.address, attrs: values as { [k: string]: AttrValue }, unknown: [], origin: { kind: 'plan' } });
+      out.resources.push({ type: r.type, address: r.address, attrs: withoutNulls(values) as { [k: string]: AttrValue }, unknown: [], origin: { kind: 'plan' } });
     }
     for (const child of Array.isArray(mod.child_modules) ? mod.child_modules : []) if (isObj(child)) walk(child);
   };
   walk(root);
+  return out;
+}
+
+/* In `terraform show -json`, null is how an optional attribute that was not
+   set is written. The rules' defaults apply to an absent attribute, so nulls
+   are dropped rather than carried as values. */
+function withoutNulls(node: Json): Json {
+  const out: Json = {};
+  for (const [k, v] of Object.entries(node)) {
+    if (v === null) continue;
+    out[k] = Array.isArray(v) ? v.map((x) => (isObj(x) ? withoutNulls(x) : x)) : isObj(v) ? withoutNulls(v) : v;
+  }
   return out;
 }
 

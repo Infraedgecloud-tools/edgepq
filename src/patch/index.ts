@@ -4,7 +4,9 @@
    nothing applies a patch.
    ========================================================================= */
 import type { Finding } from '../engine/types.ts';
-import { applyFix, type SetAttributeFix } from './apply.ts';
+import { applyEdits, planFix, type Edit, type SetAttributeFix } from './apply.ts';
+
+const span = (edits: Edit[]): { start: number; end: number } => ({ start: Math.min(...edits.map((e) => e.start)), end: Math.max(...edits.map((e) => e.end)) });
 import { unifiedDiff } from './diff.ts';
 
 export type Patch = {
@@ -22,7 +24,7 @@ export type Patch = {
 };
 export type Skipped = { ruleId: string; address: string; file?: string; reason: string };
 
-const APPLY_WITH = 'EdgePQ does not apply patches. Review, then apply with: git apply <file>';
+const APPLY_WITH = 'EdgePQ does not apply patches. Review, then apply with: git apply <file>, then run terraform fmt (an inserted line may re-align its neighbours)';
 
 function header(p: { ruleId: string; title: string; address: string; safety: string; note?: string }): string {
   const lines = [`# ${p.ruleId}: ${p.title}`, `# Resource: ${p.address}`, `# Safety: ${p.safety}`];
@@ -42,15 +44,21 @@ export function buildPatchesWithSkips(findings: Finding[], files: { name: string
     if (source === undefined) { skip('source file was not supplied'); continue; }
     const dot = f.resource.address.indexOf('.');
     const type = f.resource.address.slice(0, dot), name = f.resource.address.slice(dot + 1);
-    const res = applyFix(source, type, name, fix);
-    if (!res.changed) { skip(res.reason ?? 'no change'); continue; }
+    if (file.endsWith('.json')) { skip('JSON Terraform files are not patched; change the value by hand'); continue; }
+    const plan = planFix(source, type, name, fix);
+    if (plan.edits.length === 0) { skip(plan.reason ?? 'no change'); continue; }
+    /* An attribute under lifecycle.ignore_changes: the patch applies, Terraform
+       ignores it on the live resource, and the next scan reports it enabled. */
+    const ignored = (f.resource.ignore_changes ?? []).some((a) => a === 'all' || a === fix.attr);
+    const safety = ignored ? 'review' : fix.safety;
+    const note = ignored ? `${fix.attr} is listed in lifecycle.ignore_changes, so this change will not reach the existing resource until that entry is removed.${fix.note ? ' ' + fix.note : ''}` : fix.note;
     const patch: Patch = {
-      ruleId: f.rule.id, address: f.resource.address, file, safety: fix.safety,
-      diff: header({ ruleId: f.rule.id, title: f.rule.title, address: f.resource.address, safety: fix.safety, ...(fix.note ? { note: fix.note } : {}) }) + unifiedDiff(source, res.text, file, file),
+      ruleId: f.rule.id, address: f.resource.address, file, safety,
+      diff: header({ ruleId: f.rule.id, title: f.rule.title, address: f.resource.address, safety, ...(note ? { note } : {}) }) + unifiedDiff(source, applyEdits(source, plan.edits), file, file, 3, span(plan.edits)),
       edit: { type, name, fix, source },
     };
-    if (fix.note) patch.note = fix.note;
-    if (res.added) patch.also_set = res.added;
+    if (note) patch.note = note;
+    if (plan.added) patch.also_set = plan.added;
     patches.push(patch);
   }
   return { patches, skipped };
@@ -60,8 +68,9 @@ export function buildPatches(findings: Finding[], files: { name: string; content
   return buildPatchesWithSkips(findings, files).patches;
 }
 
-/* One diff per file, patches replayed in order on the evolving text. A patch
-   that touches an attribute an earlier one already set is reported, not merged. */
+/* One diff per file. Every patch is planned against the original text, the
+   plans are checked for clashes (two rules changing one attribute), then all
+   edits are applied in a single pass and diffed once. */
 export function combinePatches(patches: Patch[], opts: { safety: 'auto' | 'all' }): { diff: string; included: Patch[]; skipped: Skipped[] } {
   const chosen = patches.filter((p) => opts.safety === 'all' || p.safety === 'auto');
   const byFile = new Map<string, Patch[]>();
@@ -71,22 +80,21 @@ export function combinePatches(patches: Patch[], opts: { safety: 'auto' | 'all' 
   let body = '';
   for (const [file, list] of byFile) {
     const source = (list[0] as Patch).edit.source;
-    let text = source;
     const touched = new Set<string>();
+    const edits: Edit[] = [];
     for (const p of list) {
       const { type, name, fix } = p.edit;
-      const keys = [fix.attr, ...Object.keys(fix.also_set ?? {})].map((a) => `${type}.${name}#${a}`);
-      const clash = keys.find((k) => touched.has(k));
-      const res = clash ? undefined : applyFix(text, type, name, fix);
-      if (!res?.changed) {
-        skipped.push({ ruleId: p.ruleId, address: p.address, file, reason: clash ? `${clash.split('#')[1]} was already changed by another patch` : (res?.reason ?? 'no change') });
+      const plan = planFix(source, type, name, fix);
+      const clash = plan.keys.find((k) => touched.has(k));
+      if (clash || plan.edits.length === 0) {
+        skipped.push({ ruleId: p.ruleId, address: p.address, file, reason: clash ? `${clash.split('#')[1]} was already changed by another patch` : (plan.reason ?? 'no change') });
         continue;
       }
-      keys.forEach((k) => touched.add(k));
-      text = res.text;
+      plan.keys.forEach((k) => touched.add(k));
+      edits.push(...plan.edits);
       included.push(p);
     }
-    body += unifiedDiff(source, text, file, file);
+    if (edits.length) body += unifiedDiff(source, applyEdits(source, edits), file, file, 3, span(edits));
   }
   const lines = included.map((p) => `# - ${p.ruleId} ${p.address} (${p.safety})`);
   const head = included.length ? `# EdgePQ combined patch: ${included.length} change${included.length === 1 ? '' : 's'}\n${lines.join('\n')}\n# ${APPLY_WITH}\n` : '';

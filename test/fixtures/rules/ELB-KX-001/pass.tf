@@ -44,3 +44,22 @@ resource "aws_lb_listener" "plain_http" {
     target_group_arn = aws_lb_target_group.tg.arn
   }
 }
+
+# No protocol: an ALB's default is HTTP, and a Gateway Load Balancer listener
+# has none. Neither terminates TLS, so the rule stays silent.
+resource "aws_lb_listener" "protocol_defaulted" {
+  load_balancer_arn = aws_lb.app.arn
+  port              = 80
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg.arn
+  }
+}
+
+resource "aws_lb_listener" "gateway" {
+  load_balancer_arn = aws_lb.gwlb.arn
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.appliances.arn
+  }
+}

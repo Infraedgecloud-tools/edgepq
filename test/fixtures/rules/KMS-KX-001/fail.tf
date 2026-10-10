@@ -9,3 +9,9 @@ resource "aws_kms_key" "rsa_default_usage" {
   description              = "Encryption key"
   customer_master_key_spec = "RSA_2048"
 }
+
+# SM2 (China Regions) is classical public-key encryption too.
+resource "aws_kms_key" "sm2" {
+  customer_master_key_spec = "SM2"
+  key_usage                = "ENCRYPT_DECRYPT"
+}

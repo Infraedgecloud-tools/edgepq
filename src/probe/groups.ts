@@ -36,6 +36,8 @@ const hex = (n: number) => '0x' + n.toString(16).padStart(4, '0');
 
 export const groupName = (code: number): string => GROUP_NAMES[code] ?? `unknown(${hex(code)})`;
 export const isHybrid = (code: number): boolean => HYBRID_GROUPS.includes(code);
+/* The IANA pure ML-KEM entries (512, 513, 514): decoded for naming, never offered. */
+export const isPureMlkem = (code: number): boolean => code === 512 || code === 513 || code === 514;
 
 const CIPHER_NAMES: { [code: number]: string } = {
   0x1301: 'TLS_AES_128_GCM_SHA256',

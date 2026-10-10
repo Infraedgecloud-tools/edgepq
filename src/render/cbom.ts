@@ -87,7 +87,8 @@ function algorithm(r: Resource, ref: string, spec: string | undefined, unresolve
       algorithmProperties: {
         primitive: primitive(key, usage), parameterSetIdentifier: alg.param, ...(alg.curve ? { curve: alg.curve } : {}),
         ...(key === 'SYMMETRIC_DEFAULT' ? { mode: 'gcm' } : {}), executionEnvironment: env,
-        ...(env === 'hardware' ? { certificationLevel: ['fips140-3-l3'] } : {}),
+        /* KMS HSMs are FIPS 140-3 Level 3 validated; the China Regions' SM2 keys are outside that validation. */
+        ...(env === 'hardware' && key !== 'SM2' ? { certificationLevel: ['fips140-3-l3'] } : {}),
         ...(alg.cl !== undefined ? { classicalSecurityLevel: alg.cl } : {}), nistQuantumSecurityLevel: alg.nq,
         cryptoFunctions: functions ?? FUNCTIONS[usage] ?? ['unknown'],
       },
@@ -126,9 +127,17 @@ function inventory(r: Resource, report: ScanReport): Json[] {
     }
     case 'aws_cloudfront_distribution': {
       const min = str(r, 'viewer_certificate.minimum_protocol_version', 'TLSv1');
+      /* Viewer protocols per security policy, from the CloudFront table read on
+         2026-10-10 (secure-connections-supported-viewer-protocols-ciphers). */
+      const CF_VERSIONS: { [policy: string]: string } = {
+        SSLv3: 'SSLv3, TLS1.0, TLS1.1, TLS1.2, TLS1.3', TLSv1: 'TLS1.0, TLS1.1, TLS1.2, TLS1.3', TLSv1_2016: 'TLS1.0, TLS1.1, TLS1.2, TLS1.3',
+        'TLSv1.1_2016': 'TLS1.1, TLS1.2, TLS1.3', 'TLSv1.2_2018': 'TLS1.2, TLS1.3', 'TLSv1.2_2019': 'TLS1.2, TLS1.3', 'TLSv1.2_2021': 'TLS1.2, TLS1.3',
+        'TLSv1.2_2025': 'TLS1.2, TLS1.3', 'TLSv1.3_2025': 'TLS1.3',
+      };
       return [{
         ...base(r, ref, min.v ?? 'unknown', [
           { name: 'edgepq:minimum_protocol_version', value: min.v ?? 'unknown' },
+          { name: 'edgepq:tls_versions', value: (min.v && CF_VERSIONS[min.v]) ?? 'unknown' },
           { name: 'edgepq:key_exchange_groups', value: 'X25519MLKEM768, SecP256r1MLKEM768 (TLS 1.3 viewers only)' },
           ...(min.unresolved ? [{ name: 'edgepq:unresolved', value: 'minimum_protocol_version' }] : []),
         ]),
@@ -139,9 +148,16 @@ function inventory(r: Resource, report: ScanReport): Json[] {
     case 'aws_kms_key': {
       const spec = str(r, 'customer_master_key_spec', 'SYMMETRIC_DEFAULT');
       const usage = str(r, 'key_usage', 'ENCRYPT_DECRYPT');
-      /* KMS keys live in FIPS 140-3 Security Level 3 validated HSMs:
-         https://docs.aws.amazon.com/kms/latest/developerguide/mldsa.html */
-      return [algorithm(r, ref, spec.v, spec.unresolved ? 'customer_master_key_spec' : usage.unresolved ? 'key_usage' : undefined, usage.v ?? 'ENCRYPT_DECRYPT', 'hardware')];
+      /* Keys AWS KMS holds itself live in FIPS 140-3 Security Level 3 validated
+         HSMs (https://docs.aws.amazon.com/kms/latest/developerguide/mldsa.html).
+         A key in a custom key store (CloudHSM or an external key store) has its
+         material elsewhere, so no environment or certification is claimed. */
+      const store = lookup(r, 'custom_key_store_id'), xks = lookup(r, 'xks_key_id');
+      const external = store.unknown || xks.unknown || store.value !== undefined || xks.value !== undefined;
+      const notes: Prop[] = [];
+      if (external) notes.push({ name: 'edgepq:key_store', value: 'custom key store: key material is outside AWS KMS' });
+      if (spec.v === 'SYMMETRIC_DEFAULT') notes.push({ name: 'edgepq:note', value: 'SYMMETRIC_DEFAULT is AES-256-GCM outside the China Regions and 128-bit SM4 inside them' });
+      return [algorithm(r, ref, spec.v, spec.unresolved ? 'customer_master_key_spec' : usage.unresolved ? 'key_usage' : undefined, usage.v ?? 'ENCRYPT_DECRYPT', external ? 'unknown' : 'hardware', notes)];
     }
     case 'aws_acm_certificate': {
       const imported = str(r, 'certificate_body').v !== undefined || lookup(r, 'certificate_body').unknown;

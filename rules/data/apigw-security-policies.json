@@ -1,39 +1,326 @@
 {
   "sources": [
-    { "url": "https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html", "retrieved": "2026-10-10" },
-    { "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRestApi.html", "retrieved": "2026-10-10" }
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRestApi.html",
+      "retrieved": "2026-10-10"
+    }
   ],
   "notes": [
     "Policies containing PQ use hybrid key exchange (the page does not name the groups).",
     "Any policy starting with SecurityPolicy_ requires endpointAccessMode (BASIC or STRICT) and cannot be used with mutual TLS or an HTTP API mapping.",
-    "Edge-optimized APIs and domains have no PQ policy. HTTP and WebSocket APIs accept TLS_1_2 only."
+    "Edge-optimized APIs and domains have no PQ policy. HTTP and WebSocket APIs accept TLS_1_2 only.",
+    "SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09 is how the API reference (API_CreateRestApi, API_CreateDomainName, read 2026-10-10) spells the policy the developer guide table calls SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09. The API reference is what the service validates against, so only that spelling passes; the guide's spelling is kept as a known name (accepted_by_api: false) and reported as could-not-check."
   ],
   "defaults": {
-    "rest_api": { "REGIONAL": "TLS_1_0", "EDGE": "TLS_1_0", "PRIVATE": "TLS_1_2" },
-    "domain_name": { "REGIONAL": "TLS_1_2", "EDGE": "TLS_1_2", "PRIVATE": "TLS_1_2" }
+    "rest_api": {
+      "REGIONAL": "TLS_1_0",
+      "EDGE": "TLS_1_0",
+      "PRIVATE": "TLS_1_2"
+    },
+    "domain_name": {
+      "REGIONAL": "TLS_1_2",
+      "EDGE": "TLS_1_2",
+      "PRIVATE": "TLS_1_2"
+    }
   },
   "policies": {
-    "TLS_1_0": { "endpoint_types": ["REGIONAL", "PRIVATE", "EDGE"], "protocols": ["TLS1.0", "TLS1.1", "TLS1.2", "TLS1.3"], "post_quantum": false, "fips": false, "enhanced": false,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-SHA256", "ECDHE-RSA-AES128-SHA256", "ECDHE-ECDSA-AES128-SHA", "ECDHE-RSA-AES128-SHA", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-ECDSA-AES256-SHA384", "ECDHE-RSA-AES256-SHA384", "ECDHE-ECDSA-AES256-SHA", "ECDHE-RSA-AES256-SHA", "AES128-GCM-SHA256", "AES128-SHA256", "AES128-SHA", "AES256-GCM-SHA384", "AES256-SHA256", "AES256-SHA"] },
-    "TLS_1_2": { "endpoint_types": ["REGIONAL", "PRIVATE", "EDGE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": false, "fips": false, "enhanced": false,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-SHA256", "ECDHE-RSA-AES128-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-ECDSA-AES256-SHA384", "ECDHE-RSA-AES256-SHA384", "AES128-GCM-SHA256", "AES128-SHA256", "AES256-GCM-SHA384", "AES256-SHA256"] },
-    "SecurityPolicy_TLS13_1_3_2025_09": { "endpoint_types": ["REGIONAL", "PRIVATE"], "protocols": ["TLS1.3"], "post_quantum": false, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"] },
-    "SecurityPolicy_TLS13_1_3_FIPS_2025_09": { "endpoint_types": ["REGIONAL", "PRIVATE"], "protocols": ["TLS1.3"], "post_quantum": false, "fips": true, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"] },
-    "SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09": { "endpoint_types": ["REGIONAL", "PRIVATE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": true, "fips": true, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384"] },
-    "SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09": { "endpoint_types": ["REGIONAL", "PRIVATE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": true, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384"] },
-    "SecurityPolicy_TLS13_1_2_PQ_2025_09": { "endpoint_types": ["REGIONAL", "PRIVATE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": true, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-SHA256", "ECDHE-RSA-AES128-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-ECDSA-AES256-SHA384", "ECDHE-RSA-AES256-SHA384", "AES128-GCM-SHA256", "AES128-SHA256", "AES256-GCM-SHA384", "AES256-SHA256"] },
-    "SecurityPolicy_TLS13_1_2_2021_06": { "endpoint_types": ["REGIONAL", "PRIVATE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": false, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-SHA256", "ECDHE-RSA-AES128-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-ECDSA-AES256-SHA384", "ECDHE-RSA-AES256-SHA384", "AES128-GCM-SHA256", "AES128-SHA256", "AES256-GCM-SHA384", "AES256-SHA256"] },
-    "SecurityPolicy_TLS13_2025_EDGE": { "endpoint_types": ["EDGE"], "protocols": ["TLS1.3"], "post_quantum": false, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"] },
-    "SecurityPolicy_TLS12_PFS_2025_EDGE": { "endpoint_types": ["EDGE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": false, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305"] },
-    "SecurityPolicy_TLS12_2018_EDGE": { "endpoint_types": ["EDGE"], "protocols": ["TLS1.2", "TLS1.3"], "post_quantum": false, "fips": false, "enhanced": true,
-      "ciphers": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-ECDSA-AES256-SHA384", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305", "ECDHE-RSA-AES256-SHA384"] }
+    "TLS_1_0": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE",
+        "EDGE"
+      ],
+      "protocols": [
+        "TLS1.0",
+        "TLS1.1",
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": false,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES128-SHA256",
+        "ECDHE-RSA-AES128-SHA256",
+        "ECDHE-ECDSA-AES128-SHA",
+        "ECDHE-RSA-AES128-SHA",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-ECDSA-AES256-SHA384",
+        "ECDHE-RSA-AES256-SHA384",
+        "ECDHE-ECDSA-AES256-SHA",
+        "ECDHE-RSA-AES256-SHA",
+        "AES128-GCM-SHA256",
+        "AES128-SHA256",
+        "AES128-SHA",
+        "AES256-GCM-SHA384",
+        "AES256-SHA256",
+        "AES256-SHA"
+      ]
+    },
+    "TLS_1_2": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE",
+        "EDGE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": false,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES128-SHA256",
+        "ECDHE-RSA-AES128-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-ECDSA-AES256-SHA384",
+        "ECDHE-RSA-AES256-SHA384",
+        "AES128-GCM-SHA256",
+        "AES128-SHA256",
+        "AES256-GCM-SHA384",
+        "AES256-SHA256"
+      ]
+    },
+    "SecurityPolicy_TLS13_1_3_2025_09": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256"
+      ]
+    },
+    "SecurityPolicy_TLS13_1_3_FIPS_2025_09": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": true,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384"
+      ]
+    },
+    "SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": true,
+      "fips": true,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384"
+      ],
+      "accepted_by_api": false
+    },
+    "SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": true,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384"
+      ]
+    },
+    "SecurityPolicy_TLS13_1_2_PQ_2025_09": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": true,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES128-SHA256",
+        "ECDHE-RSA-AES128-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-ECDSA-AES256-SHA384",
+        "ECDHE-RSA-AES256-SHA384",
+        "AES128-GCM-SHA256",
+        "AES128-SHA256",
+        "AES256-GCM-SHA384",
+        "AES256-SHA256"
+      ]
+    },
+    "SecurityPolicy_TLS13_1_2_2021_06": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES128-SHA256",
+        "ECDHE-RSA-AES128-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-ECDSA-AES256-SHA384",
+        "ECDHE-RSA-AES256-SHA384",
+        "AES128-GCM-SHA256",
+        "AES128-SHA256",
+        "AES256-GCM-SHA384",
+        "AES256-SHA256"
+      ]
+    },
+    "SecurityPolicy_TLS13_2025_EDGE": {
+      "endpoint_types": [
+        "EDGE"
+      ],
+      "protocols": [
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256"
+      ]
+    },
+    "SecurityPolicy_TLS12_PFS_2025_EDGE": {
+      "endpoint_types": [
+        "EDGE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-ECDSA-CHACHA20-POLY1305",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-CHACHA20-POLY1305"
+      ]
+    },
+    "SecurityPolicy_TLS12_2018_EDGE": {
+      "endpoint_types": [
+        "EDGE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": false,
+      "fips": false,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES128-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-ECDSA-CHACHA20-POLY1305",
+        "ECDHE-ECDSA-AES256-SHA384",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-SHA256",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-CHACHA20-POLY1305",
+        "ECDHE-RSA-AES256-SHA384"
+      ]
+    },
+    "SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09": {
+      "endpoint_types": [
+        "REGIONAL",
+        "PRIVATE"
+      ],
+      "protocols": [
+        "TLS1.2",
+        "TLS1.3"
+      ],
+      "post_quantum": true,
+      "fips": true,
+      "enhanced": true,
+      "ciphers": [
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "ECDHE-ECDSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-ECDSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES256-GCM-SHA384"
+      ]
+    }
   }
 }

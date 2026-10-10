@@ -89,6 +89,7 @@ type Attr = { kind: 'attr'; name: string; start: number; end: number; eq: number
 type Block = { kind: 'block'; name: string; labels: string[]; start: number; end: number; body: Range };
 type Item = Attr | Block;
 
+const lineNumber = (t: string, i: number): number => { let n = 1; for (let k = 0; k < i; k++) if (t.charCodeAt(k) === 10) n++; return n; };
 const lineStart = (t: string, i: number): number => t.lastIndexOf('\n', i - 1) + 1;
 const nextLine = (t: string, i: number): number => { const n = t.indexOf('\n', i); return n < 0 ? t.length : n; };
 
@@ -142,8 +143,17 @@ function items(t: string, r: Range): Item[] {
 
 /* ----------------------------------------------------------------- public */
 
+/* The top-level index of a file is asked for once per fix in that file.
+   Planning every fix against the same original text means the same string
+   comes back each time, so one entry is enough. */
+let indexed: { text: string; items: Item[] } | undefined;
+function topLevel(text: string): Item[] {
+  if (!indexed || indexed.text !== text) indexed = { text, items: items(text, { start: 0, end: text.length }) };
+  return indexed.items;
+}
+
 export function locateResource(text: string, type: string, name: string): ResourceLocation | undefined {
-  const hits = items(text, { start: 0, end: text.length }).filter(
+  const hits = topLevel(text).filter(
     (it): it is Block => it.kind === 'block' && it.name === 'resource' && it.labels[0] === type && it.labels[1] === name,
   );
   const first = hits[0];
@@ -176,7 +186,7 @@ export function locateAttribute(text: string, body: Range & { duplicate?: boolea
     const s = skipString(text, vs);
     const rest = text.slice(s.end, attr.end).trim();
     if (s.interp || (rest !== '' && !/^(#|\/\/|\/\*.*\*\/$)/.test(rest))) return { kind: 'present-not-literal' };
-    return { kind: 'literal-string', valueRange: { start: vs, end: s.end }, line: text.slice(0, vs).split('\n').length };
+    return { kind: 'literal-string', valueRange: { start: vs, end: s.end }, line: lineNumber(text, vs) };
   }
   return locateInsertion(text, cur, all);
 }

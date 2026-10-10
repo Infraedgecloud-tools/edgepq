@@ -32,6 +32,9 @@ sources:
   - url: https://docs.aws.amazon.com/sdkref/latest/guide/pqtls-details.html
     verified: 2026-10-10
     quote: "As of Node.js v22.20 (LTS) and v24.9.0, Node.js statically links and bundles OpenSSL 3.5. ... Golang supports and prefers PQ TLS as of v1.24 ... As of v2.35.11, the AwsCrtHttpClient enables and prefers PQ TLS by default ... As of v2.34.54, the AWS CLI installer for Linux bundles OpenSSL 3.5.6 ... The consolidated SDK released PQ TLS preference on 8/29/25 ... The Kotlin SDK supports and prefers PQ TLS on Linux as of v1.5.78 ... For Amazon Linux 2023 (AL2023.12 or higher), enable PQ TLS with: sudo update-crypto-policies --set DEFAULT:PQ"
-  - url: https://aws.amazon.com/blogs/security/ml-kem-post-quantum-tls-now-supported-in-aws-kms-acm-and-secrets-manager/
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/pqtls.html
     verified: 2026-10-10
-    quote: "AWS Key Management Service (AWS KMS), AWS Certificate Manager (ACM), and AWS Secrets Manager endpoints now support Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM) for hybrid post-quantum key agreement in non-FIPS endpoints in all AWS Regions in the aws partition. (7 April 2025)"
+    quote: "AWS KMS supports hybrid post-quantum TLS in all AWS Regions where it is available, on all endpoints including FIPS 140-3 validated endpoints."
+  - url: https://docs.aws.amazon.com/secretsmanager/latest/userguide/pqtls.html
+    verified: 2026-10-10
+    quote: "Secrets Manager supports PQTLS in all Regions except China Regions."

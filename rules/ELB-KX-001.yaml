@@ -6,12 +6,31 @@ title: Load balancer listener does not offer hybrid post-quantum key exchange
 resource_types: [aws_lb_listener, aws_alb_listener]
 category: key-exchange
 severity: high
+# Applies to a listener that states a protocol other than the documented
+# non-TLS ones. An absent protocol is an ALB's HTTP default or a Gateway Load
+# Balancer listener, neither of which terminates TLS; a value outside the
+# documented set (a lower-case "https") is could-not-check.
 applies_when:
-  attr: protocol
-  in: [HTTPS, TLS]
+  all:
+    - attr: protocol
+      present: true
+    - not:
+        attr: protocol
+        in: [HTTP, TCP, UDP, TCP_UDP, GENEVE]
+# A name AWS does not document is reported as could-not-check, not as a pass
+# for containing "PQ" or a failure for not. The list is every policy on the
+# two AWS pages (rules/data/elb-security-policies.json); the test holds them equal.
+unknown_when:
+  any:
+    - not:
+        attr: protocol
+        in: [HTTPS, TLS]
+    - not:
+        attr: ssl_policy
+        in: [ELBSecurityPolicy-2015-05, ELBSecurityPolicy-2016-08, ELBSecurityPolicy-FS-1-1-2019-08, ELBSecurityPolicy-FS-1-2-2019-08, ELBSecurityPolicy-FS-1-2-Res-2019-08, ELBSecurityPolicy-FS-1-2-Res-2020-10, ELBSecurityPolicy-FS-2018-06, ELBSecurityPolicy-TLS-1-1-2017-01, ELBSecurityPolicy-TLS-1-2-2017-01, ELBSecurityPolicy-TLS-1-2-Ext-2018-06, ELBSecurityPolicy-TLS13-1-0-2021-06, ELBSecurityPolicy-TLS13-1-0-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-0-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-0-PQ-2025-09, ELBSecurityPolicy-TLS13-1-1-2021-06, ELBSecurityPolicy-TLS13-1-1-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-2-2021-06, ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext0-RFC9151-FIPS-2023-07, ELBSecurityPolicy-TLS13-1-2-Ext1-2021-06, ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext2-2021-06, ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-RFC9151-FIPS-2023-07, ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP1-FIPS-2023-07, ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP2-FIPS-2023-07, ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP3-FIPS-2023-07, ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP4-FIPS-2023-07, ELBSecurityPolicy-TLS13-1-2-Res-2021-06, ELBSecurityPolicy-TLS13-1-2-Res-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09, ELBSecurityPolicy-TLS13-1-3-2021-06, ELBSecurityPolicy-TLS13-1-3-FIPS-2023-04, ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-3-PQ-2025-09, ELBSecurityPolicy-TLS13-1-3-RFC9151-FIPS-2023-07]
 pass_when:
   attr: ssl_policy
-  matches: "-PQ-"
+  in: [ELBSecurityPolicy-TLS13-1-0-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-0-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09, ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09, ELBSecurityPolicy-TLS13-1-3-PQ-2025-09]
 defaults:
   # What the API uses when a listener is created without a policy by anything
   # other than the console (Terraform included).
@@ -23,9 +42,9 @@ fix:
   safety: review
   note: "Clients that cannot negotiate ML-KEM keep working on these policies; only the key exchange changes for clients that can. Check the connection logs' key exchange field after the change."
 message:
-  fail: "{address} terminates TLS with {ssl_policy}, which negotiates classical key exchange only. Traffic recorded today can be decrypted later by a cryptographically relevant quantum computer (harvest now, decrypt later). A policy with PQ in its name adds X25519MLKEM768, SecP256r1MLKEM768 and SecP384r1MLKEM1024 for clients that offer them."
+  fail: "{address} terminates TLS with {ssl_policy}, which negotiates classical key exchange only. Traffic recorded today could be decrypted later by a cryptographically relevant quantum computer (harvest now, decrypt later). A policy with PQ in its name adds X25519MLKEM768, SecP256r1MLKEM768 and SecP384r1MLKEM1024 for clients that offer them."
   pass: "{address} uses {ssl_policy}, which offers hybrid post-quantum key exchange to clients that support ML-KEM. Whether a given client gets it depends on that client; the listener's connection logs record the key exchange used."
-  unknown: "{address}: ssl_policy is not a literal value, so the policy could not be checked offline. Run the scan on a plan, or on the account, to see the value."
+  unknown: "{address}: ssl_policy is {ssl_policy}. Either it is not a literal value (a plan cannot show it before apply; the state or the account can), or it is not a policy name AWS documented when the rule's sources were read; check the spelling against the AWS page."
 sources:
   - url: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
     verified: 2026-10-10
@@ -39,16 +58,24 @@ sources:
   - url: https://aws.amazon.com/about-aws/whats-new/2025/11/network-load-balancers-post-quantum-key-exchange-tls
     verified: 2026-10-10
     quote: "AWS Application and Network Load Balancers Now Support Post-Quantum Key Exchange for TLS (21 November 2025)."
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/lb_listener.html.markdown
+    verified: 2026-10-10
+    quote: "protocol - (Optional) Protocol for connections from clients to the load balancer. For Application Load Balancers, valid values are HTTP and HTTPS, with a default of HTTP. For Network Load Balancers, valid values are TCP, TLS, UDP, and TCP_UDP. Not valid to use UDP or TCP_UDP if dual-stack mode is enabled. Not valid for Gateway Load Balancers."
+    paraphrase: true
+  - url: https://docs.aws.amazon.com/kms/latest/developerguide/pqtls.html
+    verified: 2026-10-10
+    quote: "Hybrid key exchange slightly increases the size and processing time of some TLS handshake messages ... legacy intermediate hosts, proxies, or firewalls with deep packet inspection (DPI) might block the request."
+    paraphrase: true
 tables:
   policy_map:
     ELBSecurityPolicy-2015-05:
       value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
     ELBSecurityPolicy-2016-08:
       value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
     ELBSecurityPolicy-FS-1-1-2019-08:
       value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
       safety: review
@@ -60,11 +87,11 @@ tables:
     ELBSecurityPolicy-FS-1-2-Res-2019-08:
       value: ELBSecurityPolicy-TLS13-1-2-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-FS-1-2-Res-2020-10:
       value: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-FS-2018-06:
       value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
       safety: review
@@ -76,19 +103,19 @@ tables:
     ELBSecurityPolicy-TLS-1-2-2017-01:
       value: ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS-1-2-Ext-2018-06:
       value: ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-0-2021-06:
       value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
     ELBSecurityPolicy-TLS13-1-0-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-0-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
     ELBSecurityPolicy-TLS13-1-1-2021-06:
       value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
       safety: review
@@ -100,11 +127,11 @@ tables:
     ELBSecurityPolicy-TLS13-1-2-2021-06:
       value: ELBSecurityPolicy-TLS13-1-2-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-Ext0-RFC9151-FIPS-2023-07:
       value: ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09
       safety: review
@@ -112,23 +139,23 @@ tables:
     ELBSecurityPolicy-TLS13-1-2-Ext1-2021-06:
       value: ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-Ext2-2021-06:
       value: ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-RFC9151-FIPS-2023-07:
       value: ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09
       safety: review
@@ -152,19 +179,19 @@ tables:
     ELBSecurityPolicy-TLS13-1-2-Res-2021-06:
       value: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-2-Res-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-3-2021-06:
       value: ELBSecurityPolicy-TLS13-1-3-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-3-FIPS-2023-04:
       value: ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09
       safety: auto
-      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
     ELBSecurityPolicy-TLS13-1-3-RFC9151-FIPS-2023-07:
       value: ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09
       safety: review

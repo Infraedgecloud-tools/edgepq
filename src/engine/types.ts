@@ -34,6 +34,10 @@ export type Resource = {
      yields `unknown`, never `fail`. */
   unknown: string[];
   origin: Origin;
+  /* Attributes Terraform will not change on an existing resource
+     (`lifecycle { ignore_changes }`); a patch to one of them is reported as
+     needing review, because applying it changes nothing live. */
+  ignore_changes?: string[];
 };
 
 /* ------------------------------------------------------------ predicates */
@@ -58,6 +62,9 @@ export type Source = {
   /* The day the page was read and the quote confirmed, YYYY-MM-DD. */
   verified: string;
   quote?: string;
+  /* True when `quote` condenses a table or a list rather than copying one
+     sentence, so a reader who cannot find the words on the page knows why. */
+  paraphrase?: true;
 };
 
 export type FixSafety = 'auto' | 'review' | 'none';
@@ -67,9 +74,13 @@ export type TableEntry = string | { value: string; safety: FixSafety; note?: str
 /* `also_set` names attributes the fix must add when they are absent, because
    the target value is invalid without them (an enhanced API Gateway policy
    needs an endpoint access mode). Existing values are left alone. */
+/* `unless` turns a set-attribute fix into guidance (`unless_note`) when the
+   predicate holds: the target value would be rejected or would break
+   something else the resource relies on (mutual TLS with an enhanced API
+   Gateway policy). The finding still fails; only the fix changes. */
 export type Fix =
-  | { kind: 'set-attribute'; attr: string; value: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string } }
-  | { kind: 'set-attribute'; attr: string; value_from: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string } }
+  | { kind: 'set-attribute'; attr: string; value: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string }; unless?: Predicate; unless_note?: string }
+  | { kind: 'set-attribute'; attr: string; value_from: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string }; unless?: Predicate; unless_note?: string }
   | { kind: 'guidance'; note: string; safety: 'none' };
 
 export type Rule = {
@@ -79,7 +90,16 @@ export type Rule = {
   category: Category;
   severity: Severity;
   applies_when?: Predicate;
+  /* True means the value is one the rule cannot judge (a policy name AWS does
+     not document, a key spec the API would reject): the finding is `unknown`
+     with `message.unknown`, never a pass by accident. */
+  unknown_when?: Predicate;
   pass_when: Predicate;
+  /* Some rules name a configuration nothing in it can change (an edge-optimized
+     API Gateway domain has no PQ policy to choose). Their failing outcome is
+     reported as `not_configurable`, so a reader does not raise a change request
+     that has no change in it. */
+  fail_as?: 'not_configurable';
   /* What AWS uses when the attribute is absent from the configuration. Applied
      before the predicates, so a missing `ssl_policy` is checked as the default
      the API would have chosen. */
@@ -94,13 +114,13 @@ export type Rule = {
 
 /* --------------------------------------------------------------- findings */
 
-export type Status = 'fail' | 'pass' | 'unknown' | 'not_applicable';
+export type Status = 'fail' | 'not_configurable' | 'pass' | 'unknown' | 'not_applicable';
 
 export type Finding = {
   id: string;
   rule: { id: string; title: string; category: Category; severity: Severity };
   status: Status;
-  resource: { type: string; address: string; origin: Origin };
+  resource: { type: string; address: string; origin: Origin; ignore_changes?: string[] };
   /* Every attribute the predicates read, with the value they saw. A default
      that was applied is reported as `{ value, defaulted: true }`. */
   observed: { [attr: string]: { value: AttrValue | undefined; defaulted?: true; unknown?: true } };

@@ -6,6 +6,19 @@ severity: low
 applies_when:
   attr: key_usage
   eq: SIGN_VERIFY
+unknown_when:
+  any:
+    - not:
+        attr: customer_master_key_spec
+        in: [SYMMETRIC_DEFAULT, RSA_2048, RSA_3072, RSA_4096, ECC_NIST_P256, ECC_NIST_P384, ECC_NIST_P521, ECC_NIST_EDWARDS25519, ECC_SECG_P256K1, SM2, HMAC_224, HMAC_256, HMAC_384, HMAC_512, ML_DSA_44, ML_DSA_65, ML_DSA_87]
+    - not:
+        attr: key_usage
+        in: [ENCRYPT_DECRYPT, SIGN_VERIFY, GENERATE_VERIFY_MAC, KEY_AGREEMENT]
+    - all:
+        - attr: customer_master_key_spec
+          matches: "^(SYMMETRIC_DEFAULT|HMAC_)"
+        - attr: key_usage
+          eq: SIGN_VERIFY
 pass_when:
   attr: customer_master_key_spec
   matches: "^ML_DSA_"
@@ -16,7 +29,7 @@ fix:
 message:
   fail: "{address} signs with {customer_master_key_spec}. Existing signatures stay valid until a cryptographically relevant quantum computer exists; what matters is whether this key's signatures must remain trustworthy after that. KMS already offers ML-DSA key specs."
   pass: "{address} signs with {customer_master_key_spec}, a FIPS 204 ML-DSA key spec. Verifiers need ML-DSA support."
-  unknown: "{address}: key_usage or customer_master_key_spec could not be determined offline."
+  unknown: "{address}: key_usage is {key_usage} and customer_master_key_spec is {customer_master_key_spec}. Either one is not a literal value, or it is not a value the KMS API accepts (the provider would reject it at plan time); check the spelling."
 sources:
   - url: https://docs.aws.amazon.com/kms/latest/developerguide/mldsa.html
     verified: 2026-10-10

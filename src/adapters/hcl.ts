@@ -23,6 +23,7 @@ export type HclParser = (filename: string, contents: string) => Promise<unknown>
 export type CoverageNote =
   | { kind: 'module-call'; address: string; file: string; source?: string }
   | { kind: 'dynamic-block'; address: string; file: string; block: string }
+  | { kind: 'count-zero'; address: string; file: string }
   | { kind: 'parse-error'; file: string; message: string };
 
 export type HclScan = { resources: Resource[]; notes: CoverageNote[] };
@@ -44,8 +45,11 @@ export function resourcesFromHclJson(json: unknown, file: string): HclScan {
         const list = Array.isArray(bodies) ? bodies : [bodies];
         for (const body of list) {
           if (!isObj(body)) continue;
+          /* `count = 0` is the usual way to switch a resource off; nothing is created. */
+          if (body.count === 0) { notes.push({ kind: 'count-zero', address, file }); continue; }
           const { attrs, unknown } = normaliseBody(body, address, file, notes);
-          resources.push({ type, address, attrs, unknown, origin: { kind: 'hcl', file } });
+          const ignore = ignoreChanges(body);
+          resources.push({ type, address, attrs, unknown, origin: { kind: 'hcl', file }, ...(ignore ? { ignore_changes: ignore } : {}) });
         }
       }
     }
@@ -62,6 +66,18 @@ export function resourcesFromHclJson(json: unknown, file: string): HclScan {
     }
   }
   return { resources, notes };
+}
+
+/* `lifecycle { ignore_changes = [ssl_policy] }` arrives as ["${ssl_policy}"]
+   (hcl2json renders the references as expressions); `all` as ["all"]. */
+function ignoreChanges(body: Json): string[] | undefined {
+  const lifecycle = Array.isArray(body.lifecycle) ? body.lifecycle[0] : body.lifecycle;
+  if (!isObj(lifecycle)) return undefined;
+  const list = lifecycle.ignore_changes;
+  if (typeof list === 'string') return list.includes('all') ? ['all'] : undefined;
+  if (!Array.isArray(list)) return undefined;
+  const names = list.filter((x): x is string => typeof x === 'string').map((x) => x.replace(/^\$\{(.*)\}$/, '$1'));
+  return names.length ? names : undefined;
 }
 
 function normaliseBody(body: Json, address: string, file: string, notes: CoverageNote[]): { attrs: Resource['attrs']; unknown: string[] } {

@@ -57,6 +57,15 @@
                 "type": "string"
               }
             },
+            "patches_skipped": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ruleId", "address", "reason"],
+                "properties": { "ruleId": { "type": "string" }, "address": { "type": "string" }, "reason": { "type": "string" } }
+              }
+            },
             "notes": {
               "type": "array",
               "items": {
@@ -143,12 +152,17 @@
           "additionalProperties": false,
           "required": [
             "fail",
+            "not_configurable",
             "unknown",
             "pass",
             "not_applicable"
           ],
           "properties": {
             "fail": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "not_configurable": {
               "type": "integer",
               "minimum": 0
             },
@@ -383,6 +397,26 @@
           "additionalProperties": false,
           "required": [
             "kind",
+            "address",
+            "file"
+          ],
+          "properties": {
+            "kind": {
+              "const": "count-zero"
+            },
+            "address": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
             "file",
             "message"
           ],
@@ -441,6 +475,9 @@
         },
         "quote": {
           "type": "string"
+        },
+        "paraphrase": {
+          "const": true
         }
       }
     },
@@ -599,6 +636,7 @@
         "status": {
           "enum": [
             "fail",
+            "not_configurable",
             "pass",
             "unknown",
             "not_applicable"

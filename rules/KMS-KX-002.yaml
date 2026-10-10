@@ -6,6 +6,18 @@ severity: medium
 applies_when:
   attr: key_usage
   eq: KEY_AGREEMENT
+unknown_when:
+  any:
+    - not:
+        attr: customer_master_key_spec
+        in: [SYMMETRIC_DEFAULT, RSA_2048, RSA_3072, RSA_4096, ECC_NIST_P256, ECC_NIST_P384, ECC_NIST_P521, ECC_NIST_EDWARDS25519, ECC_SECG_P256K1, SM2, HMAC_224, HMAC_256, HMAC_384, HMAC_512, ML_DSA_44, ML_DSA_65, ML_DSA_87]
+    - not:
+        attr: key_usage
+        in: [ENCRYPT_DECRYPT, SIGN_VERIFY, GENERATE_VERIFY_MAC, KEY_AGREEMENT]
+    - not:
+        attr: customer_master_key_spec
+        in: [ECC_NIST_P256, ECC_NIST_P384, ECC_NIST_P521, SM2]
+fail_as: not_configurable
 pass_when:
   # No KMS key spec offers a post-quantum key agreement; nothing passes today.
   attr: customer_master_key_spec
@@ -17,7 +29,7 @@ fix:
 message:
   fail: "{address} is a KEY_AGREEMENT key ({customer_master_key_spec}). KMS derives shared secrets with classical ECDH only, so a recorded exchange can be recovered later; KMS offers no post-quantum alternative for this key usage."
   pass: "{address} uses a post-quantum key agreement spec."
-  unknown: "{address}: key_usage or customer_master_key_spec could not be determined offline."
+  unknown: "{address}: key_usage is {key_usage} and customer_master_key_spec is {customer_master_key_spec}. Either one is not a literal value, or it is not a value the KMS API accepts (the provider would reject it at plan time); check the spelling."
 sources:
   - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
     verified: 2026-10-10
@@ -25,3 +37,4 @@ sources:
   - url: https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose-key-spec.html
     verified: 2026-10-10
     quote: "AWS KMS supports the following key specs for KMS keys: SYMMETRIC_DEFAULT; RSA_2048, RSA_3072, RSA_4096; ECC_NIST_P256, ECC_NIST_P384, ECC_NIST_P521, ECC_NIST_EDWARDS25519, ECC_SECG_P256K1; SM2; HMAC_224, HMAC_256, HMAC_384, HMAC_512; ML_DSA_44, ML_DSA_65, ML_DSA_87."
+    paraphrase: true

@@ -9,6 +9,15 @@ applies_when:
       absent: true
     - attr: endpoint_configuration.types
       in: [EDGE]
+defaults:
+  security_policy: TLS_1_2
+# No AWS page read for this rule states what endpoint type a domain name gets
+# when none is given (the CreateDomainName example uses EDGE; the console
+# does too), so an absent endpoint_configuration is could-not-check.
+unknown_when:
+  attr: endpoint_configuration
+  absent: true
+fail_as: not_configurable
 pass_when:
   # Nothing an edge-optimized domain can set passes; the pass branch is the
   # regional or private domain that APIGW-KX-001 checks instead.
@@ -19,13 +28,15 @@ fix:
   safety: none
   note: "API Gateway offers no PQ policy for edge-optimized domains (the EDGE policies are SecurityPolicy_TLS13_2025_EDGE, SecurityPolicy_TLS12_PFS_2025_EDGE and SecurityPolicy_TLS12_2018_EDGE). A REGIONAL domain can use SecurityPolicy_TLS13_1_2_PQ_2025_09. Edge-optimized endpoints terminate TLS at CloudFront's edge and AWS does not document their key exchange: run `edgepq verify <domain>` to see what is negotiated today."
 message:
-  fail: "{address} is edge-optimized (the default when endpoint_configuration is not set). No post-quantum security policy exists for edge-optimized domains, so this is not something a policy change can fix."
+  fail: "{address} is edge-optimized and its security_policy is {security_policy}. No post-quantum security policy exists for edge-optimized domains, so this is not something a policy change can fix. A SecurityPolicy_ value that is not one of the three EDGE policies is not accepted on an edge-optimized domain at all."
   pass: "{address} is a regional or private domain; see APIGW-KX-001."
-  unknown: "{address}: the endpoint type could not be determined offline."
+  unknown: "{address}: endpoint_configuration is not set or not a literal, so the endpoint type is not known. The API reference documents no default; state the type explicitly."
 sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
     verified: 2026-10-10
     quote: "Supported security policies for edge-optimized APIs and custom domain names: SecurityPolicy_TLS13_2025_EDGE, SecurityPolicy_TLS12_PFS_2025_EDGE, SecurityPolicy_TLS12_2018_EDGE, TLS_1_2 (edge-optimized custom domain names only), TLS_1_0."
-  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/api_gateway_rest_api.html.markdown
+    paraphrase: true
+  - url: https://docs.aws.amazon.com/apigateway/latest/api/API_EndpointConfiguration.html
     verified: 2026-10-10
-    quote: "types - (Required) List of endpoint types. Valid values: EDGE, REGIONAL or PRIVATE. If unspecified, defaults to EDGE."
+    quote: "For an edge-optimized API and its custom domain name, the endpoint type is EDGE. For a regional API and its custom domain name, the endpoint type is REGIONAL. For a private API, the endpoint type is PRIVATE."
+

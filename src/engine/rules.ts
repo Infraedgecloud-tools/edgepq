@@ -86,8 +86,10 @@ function validateSources(id: string, v: unknown): Source[] {
     if (typeof s.url !== 'string' || !/^https:\/\//.test(s.url)) throw new RuleError(id, `sources[${i}].url must be an https URL`);
     if (typeof s.verified !== 'string' || !DATE_RE.test(s.verified)) throw new RuleError(id, `sources[${i}].verified must be a YYYY-MM-DD date`);
     if (s.quote !== undefined && typeof s.quote !== 'string') throw new RuleError(id, `sources[${i}].quote must be a string`);
+    if (s.paraphrase !== undefined && s.paraphrase !== true) throw new RuleError(id, `sources[${i}].paraphrase must be true when present`);
     const out: Source = { url: s.url, verified: s.verified };
     if (typeof s.quote === 'string') out.quote = s.quote;
+    if (s.paraphrase === true) out.paraphrase = true;
     return out;
   });
 }
@@ -104,15 +106,20 @@ function validateFix(id: string, v: unknown, tables: Rule['tables']): Fix {
   if (safety !== 'auto' && safety !== 'review' && safety !== 'none') throw new RuleError(id, 'fix.safety must be auto, review or none');
   if (typeof v.attr !== 'string' || !v.attr) throw new RuleError(id, 'fix.attr is required');
   const note = typeof v.note === 'string' ? { note: v.note } : {};
+  let unless: { unless?: Predicate; unless_note?: string } = {};
+  if (v.unless !== undefined) {
+    if (typeof v.unless_note !== 'string' || !v.unless_note) throw new RuleError(id, 'fix.unless needs fix.unless_note');
+    unless = { unless: validatePredicate(id, v.unless, 'fix.unless'), unless_note: v.unless_note };
+  }
   let alsoSet: { also_set?: { [attr: string]: string } } = {};
   if (v.also_set !== undefined) {
     if (!isRecord(v.also_set) || !Object.values(v.also_set).every((x) => typeof x === 'string')) throw new RuleError(id, 'fix.also_set must map attributes to strings');
     alsoSet = { also_set: v.also_set as { [attr: string]: string } };
   }
-  if (typeof v.value === 'string') return { kind: 'set-attribute', attr: v.attr, value: v.value, safety, ...note, ...alsoSet };
+  if (typeof v.value === 'string') return { kind: 'set-attribute', attr: v.attr, value: v.value, safety, ...note, ...alsoSet, ...unless };
   if (typeof v.value_from === 'string') {
     if (!tables || !(v.value_from in tables)) throw new RuleError(id, `fix.value_from refers to table '${v.value_from}' which the rule does not define`);
-    return { kind: 'set-attribute', attr: v.attr, value_from: v.value_from, safety, ...note, ...alsoSet };
+    return { kind: 'set-attribute', attr: v.attr, value_from: v.value_from, safety, ...note, ...alsoSet, ...unless };
   }
   throw new RuleError(id, 'fix needs value or value_from');
 }
@@ -131,7 +138,7 @@ export function validateRule(raw: unknown): Rule {
   for (const k of ['fail', 'pass', 'unknown'] as const) {
     if (typeof raw.message[k] !== 'string' || !raw.message[k]) throw new RuleError(id, `message.${k} is required`);
   }
-  const allowed = new Set(['id', 'title', 'resource_types', 'category', 'severity', 'applies_when', 'pass_when', 'defaults', 'fix', 'message', 'sources', 'tables']);
+  const allowed = new Set(['id', 'title', 'resource_types', 'category', 'severity', 'applies_when', 'unknown_when', 'pass_when', 'fail_as', 'defaults', 'fix', 'message', 'sources', 'tables']);
   for (const k of Object.keys(raw)) if (!allowed.has(k)) throw new RuleError(id, `unknown field '${k}'`);
 
   let tables: Rule['tables'];
@@ -171,6 +178,11 @@ export function validateRule(raw: unknown): Rule {
     sources: validateSources(id, raw.sources),
   };
   if (raw.applies_when !== undefined) rule.applies_when = validatePredicate(id, raw.applies_when, 'applies_when');
+  if (raw.unknown_when !== undefined) rule.unknown_when = validatePredicate(id, raw.unknown_when, 'unknown_when');
+  if (raw.fail_as !== undefined) {
+    if (raw.fail_as !== 'not_configurable') throw new RuleError(id, "fail_as must be 'not_configurable' when present");
+    rule.fail_as = 'not_configurable';
+  }
   if (defaults) rule.defaults = defaults;
   if (tables) rule.tables = tables;
   if (raw.fix !== undefined) rule.fix = validateFix(id, raw.fix, tables);

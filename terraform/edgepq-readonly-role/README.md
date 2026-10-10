@@ -7,13 +7,12 @@ Describe or Get, named one by one. No wildcard actions.
 |---|---|
 | `elasticloadbalancing:DescribeLoadBalancers`, `DescribeListeners` | listeners and their security policies |
 | `cloudfront:ListDistributions` | viewer protocol policy and minimum TLS version |
-| `apigateway:GET` on `/domainnames*` and `/restapis*` | REST and HTTP API domains, REST API endpoints |
+| `apigateway:GET` on `/domainnames` and `/restapis` (the collections only) | REST and HTTP API domains, REST API endpoints |
 | `kms:ListKeys`, `kms:DescribeKey` | key specs and usage |
 | `acm:ListCertificates` | certificate inventory for the CBOM |
 | `acm-pca:ListCertificateAuthorities` | private CA key algorithms |
-| `lambda:ListFunctions` | extension layer versions |
 | `ec2:DescribeRegions` | which regions to scan |
-| `cloudtrail:LookupEvents` (optional) | the client key-exchange sample |
+| `cloudtrail:LookupEvents` (optional) | the client key-exchange sample: 90 days of management events, which carry identity, source IP and user agent; the report prints user agents |
 
 ```hcl
 module "edgepq_role" {

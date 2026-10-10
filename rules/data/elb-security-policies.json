@@ -1211,12 +1211,12 @@
   "ELBSecurityPolicy-2015-05": {
    "value": "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
   },
   "ELBSecurityPolicy-2016-08": {
    "value": "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
   },
   "ELBSecurityPolicy-FS-1-1-2019-08": {
    "value": "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09",
@@ -1231,12 +1231,12 @@
   "ELBSecurityPolicy-FS-1-2-Res-2019-08": {
    "value": "ELBSecurityPolicy-TLS13-1-2-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-FS-1-2-Res-2020-10": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-FS-2018-06": {
    "value": "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09",
@@ -1251,22 +1251,22 @@
   "ELBSecurityPolicy-TLS-1-2-2017-01": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS-1-2-Ext-2018-06": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-0-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
   },
   "ELBSecurityPolicy-TLS13-1-0-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-0-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients."
   },
   "ELBSecurityPolicy-TLS13-1-1-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09",
@@ -1281,12 +1281,12 @@
   "ELBSecurityPolicy-TLS13-1-2-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-2-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-Ext0-RFC9151-FIPS-2023-07": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09",
@@ -1296,27 +1296,27 @@
   "ELBSecurityPolicy-TLS13-1-2-Ext1-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-Ext2-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-RFC9151-FIPS-2023-07": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09",
@@ -1346,22 +1346,22 @@
   "ELBSecurityPolicy-TLS13-1-2-Res-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-2-Res-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-3-2021-06": {
    "value": "ELBSecurityPolicy-TLS13-1-3-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-3-FIPS-2023-04": {
    "value": "ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09",
    "safety": "auto",
-   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+   "note": "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change."
   },
   "ELBSecurityPolicy-TLS13-1-3-RFC9151-FIPS-2023-07": {
    "value": "ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09",

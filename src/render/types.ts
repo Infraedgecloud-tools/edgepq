@@ -3,7 +3,7 @@ import type { Category, Finding, Resource, Severity, Source } from '../engine/ty
 import type { CoverageNote } from '../adapters/hcl.ts';
 
 export type ScanInput =
-  | { kind: 'hcl'; files: string[]; notes: CoverageNote[] }
+  | { kind: 'hcl'; files: string[]; notes: CoverageNote[]; patches_skipped?: { ruleId: string; address: string; reason: string }[] }
   | { kind: 'plan' | 'state'; file: string; skipped: { address: string; reason: string }[] }
   | { kind: 'aws'; accounts: string[]; regions: string[]; not_checked: { account: string; region: string; service: string; reason: string }[] };
 

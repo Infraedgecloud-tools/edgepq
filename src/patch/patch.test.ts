@@ -34,7 +34,9 @@ for (const rule of rules) {
       assert.equal(patches.length, 0);
       return;
     }
-    assert.equal(patches.length, findings.length, 'one patch per failing resource');
+    /* A fix that `unless` turned into guidance writes no patch. */
+    const patchable = findings.filter((f) => f.fix?.kind === 'set-attribute');
+    assert.equal(patches.length, patchable.length, 'one patch per failing resource with a set-attribute fix');
     const dir = mkdtempSync(join(tmpdir(), 'edgepq-patch-'));
     try {
       writeFileSync(join(dir, 'fail.tf'), contents);
@@ -50,7 +52,9 @@ for (const rule of rules) {
       assert.equal(applied.status, 0, applied.stderr);
       const patched = readFileSync(join(dir, 'fail.tf'), 'utf8');
       const after = await scan(rule, 'fail.tf', patched);
-      assert.deepEqual(after.map((f) => f.status), after.map(() => 'pass'), patched);
+      /* Everything a patch touched now passes; a resource whose fix was guidance still fails. */
+      const guided = new Set(findings.filter((f) => f.fix?.kind !== 'set-attribute').map((f) => f.resource.address));
+      assert.deepEqual(after.map((f) => f.status), after.map((f) => (guided.has(f.resource.address) ? 'fail' : 'pass')), patched);
       assert.equal(after.length, findings.length);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -59,10 +63,10 @@ for (const rule of rules) {
 }
 
 test('combinePatches: auto filter, and a second patch on the same attribute is reported', async () => {
-  const rule = rules.find((r) => r.id === 'CF-KX-002')!;
-  const contents = readFileSync(join(root, 'test/fixtures/rules/CF-KX-002/fail.tf'), 'utf8');
+  const rule = rules.find((r) => r.id === 'APIGW-KX-003')!;
+  const contents = readFileSync(join(root, 'test/fixtures/rules/APIGW-KX-003/fail.tf'), 'utf8');
   const patches = buildPatches(await scan(rule, 'fail.tf', contents), [{ name: 'fail.tf', contents }]);
-  assert.ok(patches.every((p) => p.safety === 'review'));
+  assert.ok(patches.length > 0 && patches.every((p) => p.safety === 'review'));
   assert.equal(combinePatches(patches, { safety: 'auto' }).diff, '');
   const dup = combinePatches([patches[0]!, patches[0]!], { safety: 'all' });
   assert.equal(dup.included.length, 1);

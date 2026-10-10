@@ -71,10 +71,12 @@ def main(alb_path, nlb_path, retrieved):
         q = cands[0]
         extra_p = sorted(set(policies[q]['protocols']) - set(me['protocols']))
         extra_c = sorted(set(policies[q]['ciphers']) - set(me['ciphers']))
+        keeps_legacy = any(p in ('TLS1.0', 'TLS1.1') for p in policies[q]['protocols'])
+        legacy_note = ' It keeps the TLS 1.0 and 1.1 the current policy admits; AWS recommends ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09 once the connection logs show no TLS 1.0 or 1.1 clients.' if keeps_legacy else ''
         if 'RFC9151' in n:
             mapping[n] = {'value': q, 'safety': 'review', 'note': 'RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition.'}
         elif set(extra_p) <= {'TLS1.3'} and set(extra_c) <= TLS13_SUITES:
-            mapping[n] = {'value': q, 'safety': 'auto', 'note': 'Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access.'}
+            mapping[n] = {'value': q, 'safety': 'auto', 'note': 'Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change.' + legacy_note}
         else:
             mapping[n] = {'value': q, 'safety': 'review', 'note': f'Nearest post-quantum superset. It also admits {", ".join(extra_p) if extra_p else "no extra protocols"} and {len(extra_c)} more cipher suites than the current policy.'}
     out = {

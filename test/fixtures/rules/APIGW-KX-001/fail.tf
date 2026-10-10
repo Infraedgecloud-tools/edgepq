@@ -25,3 +25,17 @@ resource "aws_api_gateway_domain_name" "enhanced_but_classical" {
     types = ["REGIONAL"]
   }
 }
+
+# Legacy policy with mutual TLS: still a failure, but no policy change is
+# written because an enhanced policy and mTLS cannot be combined.
+resource "aws_api_gateway_domain_name" "mtls_legacy" {
+  domain_name              = "partners.example.com"
+  regional_certificate_arn = var.cert
+  security_policy          = "TLS_1_2"
+  mutual_tls_authentication {
+    truststore_uri = "s3://truststore/bundle.pem"
+  }
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}

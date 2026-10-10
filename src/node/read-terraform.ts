@@ -6,6 +6,9 @@ import { scanHclFiles, type HclScan } from '../adapters/hcl.ts';
 import { resourcesFromTerraformJson, type PlanScan } from '../adapters/plan.ts';
 import { parseHcl } from './hcl-parser.ts';
 
+/* Terraform also loads *.tf.json, whose shape is what hcl2json produces. */
+const parseAny: typeof parseHcl = (filename, contents) => (filename.endsWith('.json') ? Promise.resolve(JSON.parse(contents) as unknown) : parseHcl(filename, contents));
+
 export type TerraformInput = { kind: 'hcl'; scan: HclScan; files: string[] } | { kind: 'json'; scan: PlanScan; file: string };
 
 export async function readTerraform(target: string): Promise<TerraformInput> {
@@ -20,7 +23,7 @@ export async function readTerraform(target: string): Promise<TerraformInput> {
       if (entry.isDirectory()) {
         if (entry.name === '.terraform' || entry.name === '.git' || entry.name === 'node_modules') continue;
         await walk(join(dir, entry.name));
-      } else if (entry.name.endsWith('.tf')) {
+      } else if (entry.name.endsWith('.tf') || entry.name.endsWith('.tf.json')) {
         names.push(join(dir, entry.name));
       }
     }
@@ -28,5 +31,5 @@ export async function readTerraform(target: string): Promise<TerraformInput> {
   await walk(target);
   names.sort();
   const files = await Promise.all(names.map(async (n) => ({ name: relative(target, n) || n, contents: await readFile(n, 'utf8') })));
-  return { kind: 'hcl', scan: await scanHclFiles(files, parseHcl), files: files.map((f) => f.name) };
+  return { kind: 'hcl', scan: await scanHclFiles(files, parseAny), files: files.map((f) => f.name) };
 }

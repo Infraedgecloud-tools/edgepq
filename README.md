@@ -16,11 +16,13 @@ Nothing is ever applied: patches are unified diffs for a person to review.
 
 ## Run it in five minutes
 
-Needs Node 22.18 or later (`node -v`).
+Needs Node 22.18 or later (`node -v`); `verify` needs 22.20 or later, which
+bundles the OpenSSL that can negotiate the hybrid groups.
+
+The repository is private while publishing is decided, so you will have
+received the `edgepq/` directory itself. From inside it:
 
 ```bash
-git clone https://github.com/karshee/Infraedge.git
-cd Infraedge/edgepq
 npm ci
 node bin/edgepq.js scan path/to/your/terraform
 ```
@@ -50,8 +52,7 @@ each was verified. In short, as of 10 October 2026:
   listener policies; API Gateway custom domains and REST API endpoints;
   CloudFront viewer policy; KMS RSA encryption keys and ECDH key agreement.
 - **Clients.** Which SDKs actually negotiate ML-KEM with KMS and Secrets
-  Manager, from CloudTrail (AWS scan only); the Secrets Manager Lambda
-  extension version.
+  Manager, from CloudTrail (AWS scan only).
 - **Signatures, ranked after.** KMS signing keys; Private CA key algorithms.
 - **Inventory.** ACM certificates and everything above, in the CBOM.
 
@@ -63,7 +64,14 @@ What it does not look at is printed at the top of every report.
 ## Scanning an AWS account
 
 Read-only. Apply `terraform/edgepq-readonly-role/` in each account to be
-scanned (every IAM action is named individually; see its README), then:
+scanned (every IAM action is named individually; see its README). The role
+reads listener, distribution, API Gateway domain and API, KMS key, ACM
+certificate and Private CA metadata, and the 90-day CloudTrail event
+history for the client sample (those events carry the calling identity,
+source IP and user agent, and the report prints the user agents of clients
+still on classical key exchange); it reads no function code, no environment
+variables and no secrets. `--org` additionally needs
+`organizations:ListAccounts` on the principal running the scan. Then:
 
 ```bash
 node bin/edgepq.js aws                                  # the account your credentials belong to, every enabled region
@@ -85,7 +93,12 @@ node bin/edgepq.js verify 203.0.113.10:8443 --servername api.example.com --json
 
 Sends a browser-like TLS 1.3 ClientHello and reports the group the server
 put in its ServerHello, then a hybrid-only offer, then handshakes through
-Node's own TLS stack as a cross-check. The verdict is one of
+Node's own TLS stack as a cross-check. The hand-built hello carries a
+placeholder ML-KEM key share (this Node cannot generate a real one), which
+servers in use today accept because they choose the group before using the
+share; a server that validated the share first would answer with an alert
+and the verdict would fall back to the Node handshakes, which use real keys
+and are the authoritative evidence. Both are reported. The verdict is one of
 `hybrid_selected`, `hybrid_supported_not_preferred`, `classical_only`,
 `tls_1_2_only`, `inconclusive`, with the evidence beside it.
 

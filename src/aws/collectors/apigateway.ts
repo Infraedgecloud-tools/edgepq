@@ -20,7 +20,9 @@ export const apigateway: Collector = {
           domain_name: d.domainName,
           ...(d.securityPolicy ? { security_policy: d.securityPolicy } : {}),
           ...(d.endpointAccessMode ? { endpoint_access_mode: d.endpointAccessMode } : {}),
-          endpoint_configuration: [{ types: d.endpointConfiguration?.types ?? ['EDGE'] }],
+          ...(d.mutualTlsAuthentication?.truststoreUri ? { mutual_tls_authentication: [{ truststore_uri: d.mutualTlsAuthentication.truststoreUri }] } : {}),
+          /* No default is assumed: the rule treats a missing type as could-not-check. */
+          ...(d.endpointConfiguration?.types ? { endpoint_configuration: [{ types: d.endpointConfiguration.types }] } : {}),
         }));
       }
     }

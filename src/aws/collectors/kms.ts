@@ -26,6 +26,8 @@ export const kms: Collector = {
           key_usage: meta.KeyUsage ?? 'ENCRYPT_DECRYPT',
           key_state: meta.KeyState ?? null,
           multi_region: meta.MultiRegion ?? false,
+          ...(meta.CustomKeyStoreId ? { custom_key_store_id: meta.CustomKeyStoreId } : {}),
+          ...(meta.XksKeyConfiguration?.Id ? { xks_key_id: meta.XksKeyConfiguration.Id } : {}),
         }));
       }
     }

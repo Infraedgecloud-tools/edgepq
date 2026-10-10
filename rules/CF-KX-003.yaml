@@ -1,0 +1,30 @@
+id: CF-KX-003
+title: CloudFront distribution on the default certificate cannot raise its minimum TLS version
+resource_types: [aws_cloudfront_distribution]
+category: inventory
+severity: low
+applies_when:
+  attr: viewer_certificate.cloudfront_default_certificate
+  eq: true
+# Nothing on a default-certificate distribution can pass: the minimum is
+# fixed at TLSv1 until the distribution moves to its own certificate, at
+# which point CF-KX-002 applies instead.
+fail_as: not_configurable
+pass_when:
+  attr: viewer_certificate.cloudfront_default_certificate
+  eq: false
+fix:
+  kind: guidance
+  safety: none
+  note: "Attach an ACM certificate (acm_certificate_arn with ssl_support_method = sni-only) and set minimum_protocol_version; the provider only allows TLSv1 while cloudfront_default_certificate is true. TLS 1.3 viewers already negotiate hybrid post-quantum key exchange on this distribution; this is about the legacy viewers it also admits."
+message:
+  fail: "{address} uses the default CloudFront certificate, so its minimum protocol is fixed at TLSv1 and TLS 1.0 and 1.1 viewers are accepted. Those connections cannot use post-quantum key exchange, and the setting cannot change without a certificate of your own."
+  pass: "{address} uses its own certificate; see CF-KX-002."
+  unknown: "{address}: whether the distribution uses the default certificate could not be determined offline."
+sources:
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/cloudfront_distribution.html.markdown
+    verified: 2026-10-10
+    quote: "minimum_protocol_version - Minimum version of the SSL protocol that you want CloudFront to use for HTTPS connections. Can only be set if cloudfront_default_certificate = false. ... If you have specified cloudfront_default_certificate, TLSv1 must be specified."
+  - url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/secure-connections-supported-viewer-protocols-ciphers.html
+    verified: 2026-10-10
+    quote: "Quantum-safe key exchanges are only supported with TLS 1.3. TLS 1.2 and earlier versions do not support quantum-safe key exchanges."

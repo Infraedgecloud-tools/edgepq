@@ -32,7 +32,7 @@ export type CheckResult = {
   json: string;
   markdown: string;
   cbom: string;
-  summary: { fail: number; unknown: number; pass: number; resources: number; rules: number };
+  summary: { fail: number; not_configurable: number; unknown: number; pass: number; resources: number; rules: number };
 };
 
 const rules: Rule[] = validateRules(rulesJson as unknown[]);
@@ -54,7 +54,7 @@ function finish(kind: CheckResult['kind'], rep: ScanReport): CheckResult {
   const count = (s: string) => rep.findings.filter((f) => f.status === s).length;
   return {
     kind, report: rep, doc: buildDoc(rep), json: renderJson(rep), markdown: renderMarkdown(rep), cbom: renderCbomJson(rep),
-    summary: { fail: count('fail'), unknown: count('unknown'), pass: count('pass'), resources: rep.resources.length, rules: rules.length },
+    summary: { fail: count('fail'), not_configurable: count('not_configurable'), unknown: count('unknown'), pass: count('pass'), resources: rep.resources.length, rules: rules.length },
   };
 }
 

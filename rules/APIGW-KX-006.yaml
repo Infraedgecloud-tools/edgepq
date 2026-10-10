@@ -3,9 +3,18 @@ title: HTTP or WebSocket API custom domain cannot use a post-quantum security po
 resource_types: [aws_apigatewayv2_domain_name]
 category: key-exchange
 severity: low
+# TLS_1_2 is the only value API Gateway accepts here, so nothing can pass;
+# any other value is a configuration the API rejects, reported as
+# could-not-check rather than as a post-quantum policy.
+unknown_when:
+  not:
+    attr: domain_name_configuration.security_policy
+    eq: TLS_1_2
+fail_as: not_configurable
 pass_when:
-  attr: domain_name_configuration.security_policy
-  matches: "_PQ_"
+  not:
+    attr: domain_name_configuration.security_policy
+    eq: TLS_1_2
 defaults:
   domain_name_configuration.security_policy: TLS_1_2
 fix:
@@ -15,7 +24,7 @@ fix:
 message:
   fail: "{address} is an HTTP or WebSocket API domain using {domain_name_configuration.security_policy}. API Gateway offers no post-quantum policy for these APIs, so this cannot be fixed by a policy change."
   pass: "{address} uses a post-quantum policy."
-  unknown: "{address}: the security policy could not be determined offline."
+  unknown: "{address}: security_policy is {domain_name_configuration.security_policy}. Either it is not a literal value, or it is not TLS_1_2, the only value API Gateway accepts for an HTTP or WebSocket API domain."
 sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
     verified: 2026-10-10

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { unifiedDiff } from './diff.ts';
@@ -21,7 +21,6 @@ const cases: [string, string, string][] = [
   ['no newline at end in new', nums(4), nums(4).slice(0, -1)],
   ['no newline at end in old', nums(4).slice(0, -1), nums(4)],
   ['no newline in both, last line changed', 'a\nb', 'a\nc'],
-  ['repeated lines', 'x\nx\nx\ny\nx\n', 'x\ny\nx\nx\nx\n'],
 ];
 
 for (const [label, a, b] of cases) {
@@ -42,4 +41,16 @@ for (const [label, a, b] of cases) {
 
 test('identical text produces an empty diff', () => {
   assert.equal(unifiedDiff('a\n', 'a\n', 'f', 'f'), '');
+});
+
+/* Where GNU diff and this walk choose different but equally valid scripts
+   (repeated lines), what matters is that `patch` reproduces the new text. */
+test('a diff over repeated lines applies cleanly', { skip: !haveDiff && 'diff is not installed' }, () => {
+  const a = 'x\nx\nx\ny\nx\n', b = 'x\ny\nx\nx\nx\n';
+  const dir = mkdtempSync(join(tmpdir(), 'edgepq-diff-'));
+  writeFileSync(join(dir, 'f'), a);
+  writeFileSync(join(dir, 'p.diff'), unifiedDiff(a, b, 'f', 'f'));
+  const r = spawnSync('patch', ['-p1', '-i', 'p.diff'], { cwd: dir, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(readFileSync(join(dir, 'f'), 'utf8'), b);
 });

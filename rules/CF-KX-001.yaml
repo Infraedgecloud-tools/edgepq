@@ -13,10 +13,10 @@ pass_when:
 fix:
   kind: guidance
   safety: none
-  note: "Set viewer_protocol_policy to redirect-to-https (or https-only for APIs) on every cache behavior. Nothing else is needed for post-quantum key exchange on the viewer side: CloudFront negotiates X25519MLKEM768 or SecP256r1MLKEM768 with any TLS 1.3 viewer that offers them, under every security policy."
+  note: "Set viewer_protocol_policy to redirect-to-https (or https-only for APIs) on every cache behavior. Nothing else is needed for post-quantum key exchange on the viewer side: CloudFront's documentation lists X25519MLKEM768 and SecP256r1MLKEM768 as supported key exchanges for TLS 1.3 viewers and says nothing has to be configured; it does not say so per security policy, and `edgepq verify` on the distribution's hostname shows what is negotiated today."
 message:
   fail: "{address} has a cache behavior with viewer_protocol_policy = allow-all, so viewers can fetch over plain HTTP where no key exchange of any kind protects the traffic. For HTTPS viewers, CloudFront already offers hybrid post-quantum key exchange on TLS 1.3; the plain-HTTP path is the part in your hands."
-  pass: "{address} requires HTTPS from viewers. CloudFront offers X25519MLKEM768 and SecP256r1MLKEM768 to TLS 1.3 viewers under every security policy; there is nothing to enable. Connections from the edge to your origin are not covered by this check."
+  pass: "{address} requires HTTPS from viewers. CloudFront documents X25519MLKEM768 and SecP256r1MLKEM768 for TLS 1.3 viewers with nothing to enable; run `edgepq verify` on the distribution's hostname for evidence of what is negotiated. Connections from the edge to your origin are not covered by this check."
   unknown: "{address}: a cache behavior's viewer_protocol_policy could not be determined offline (a dynamic block or an expression)."
 sources:
   - url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/secure-connections-supported-viewer-protocols-ciphers.html

@@ -15,5 +15,5 @@ Predicates: `all`, `any`, `not`, and leaf tests `eq`, `in`, `matches`,
 `[*]` means any element. Anything the engine cannot resolve offline yields
 `unknown`, never `fail`.
 
-Every rule has a failing and a passing fixture under `test/fixtures/<RULE-ID>/`;
+Every rule has a failing and a passing fixture under `test/fixtures/rules/<RULE-ID>/`;
 a test asserts both exist and evaluate as named.

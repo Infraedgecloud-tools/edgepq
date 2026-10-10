@@ -11,7 +11,7 @@ resource "aws_api_gateway_domain_name" "pq" {
 resource "aws_api_gateway_domain_name" "fips_pq_private" {
   domain_name              = "internal.example.com"
   regional_certificate_arn = var.cert
-  security_policy          = "SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09"
+  security_policy          = "SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09"
   endpoint_access_mode     = "STRICT"
   endpoint_configuration {
     types = ["PRIVATE"]

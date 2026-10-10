@@ -8,14 +8,12 @@ import { ApiGatewayV2Client, GetDomainNamesCommand as GetV2DomainNamesCommand } 
 import { KMSClient, DescribeKeyCommand, ListKeysCommand } from '@aws-sdk/client-kms';
 import { ACMClient, ListCertificatesCommand } from '@aws-sdk/client-acm';
 import { ACMPCAClient, ListCertificateAuthoritiesCommand } from '@aws-sdk/client-acm-pca';
-import { LambdaClient, ListFunctionsCommand } from '@aws-sdk/client-lambda';
 import { CloudTrailClient, LookupEventsCommand } from '@aws-sdk/client-cloudtrail';
 import { elbv2 } from './elbv2.ts';
 import { cloudfront } from './cloudfront.ts';
 import { apigateway, apigatewayv2 } from './apigateway.ts';
 import { kms } from './kms.ts';
 import { acm, acmpca } from './certificates.ts';
-import { lambda } from './lambda.ts';
 import { cloudtrail, summarise } from './cloudtrail.ts';
 import { loadRulesFromDir } from '../../node/load-rules.ts';
 import { evaluateAll } from '../../engine/evaluate.ts';
@@ -55,7 +53,7 @@ test('cloudfront: shaped like the Terraform resource, rules apply unchanged', as
   const { resources } = await cloudfront.run(ctx);
   const findings = evaluateAll(await loadRulesFromDir(rulesDir), resources);
   assert.deepEqual(findings.map((f) => [f.rule.id, f.resource.address, f.status]), [
-    ['CF-KX-001', 'arn:cf/1', 'fail'], ['CF-KX-001', 'arn:cf/2', 'pass'], ['CF-KX-002', 'arn:cf/1', 'pass'],
+    ['CF-KX-001', 'arn:cf/1', 'fail'], ['CF-KX-003', 'arn:cf/2', 'not_configurable'], ['CF-KX-001', 'arn:cf/2', 'pass'], ['CF-KX-002', 'arn:cf/1', 'pass'],
   ]);
   m.restore();
 });
@@ -82,8 +80,8 @@ test('api gateway: domains, rest apis and v2 domains with service defaults left 
   const findings = evaluateAll(await loadRulesFromDir(rulesDir), all);
   assert.deepEqual(findings.map((f) => [f.rule.id, name(f.resource.address), f.status]), [
     ['APIGW-KX-001', 'api.example.com', 'fail'], ['APIGW-KX-003', 'orders', 'fail'],
-    ['APIGW-KX-002', 'edge.example.com', 'fail'],
-    ['APIGW-KX-006', 'h1.example.com', 'fail'], ['APIGW-KX-006', 'h2.example.com', 'fail'],
+    ['APIGW-KX-002', 'edge.example.com', 'not_configurable'],
+    ['APIGW-KX-006', 'h1.example.com', 'not_configurable'], ['APIGW-KX-006', 'h2.example.com', 'not_configurable'],
     ['APIGW-KX-004', 'pq', 'pass'],
   ]);
   m.restore(); v2.restore();
@@ -124,19 +122,6 @@ test('acm and private ca', async () => {
   const findings = evaluateAll(await loadRulesFromDir(rulesDir), [...certs.resources, ...cas.resources]);
   assert.deepEqual(findings.map((f) => [f.rule.id, f.resource.address, f.status]), [['PCA-SIG-001', 'arn:pca/1', 'fail'], ['PCA-SIG-001', 'arn:pca/3', 'pass']]);
   a.restore(); p.restore();
-});
-
-test('lambda layers feed the extension rule', async () => {
-  const m = mockClient(LambdaClient);
-  m.on(ListFunctionsCommand).resolves({ Functions: [
-    { FunctionArn: 'arn:fn/old', FunctionName: 'old', Runtime: 'nodejs22.x', Layers: [{ Arn: 'arn:aws:lambda:eu-west-2:133256977650:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11' }] },
-    { FunctionArn: 'arn:fn/new', FunctionName: 'new', Runtime: 'nodejs22.x', Layers: [{ Arn: 'arn:aws:lambda:eu-west-2:133256977650:layer:AWS-Parameters-and-Secrets-Lambda-Extension:123' }] },
-    { FunctionArn: 'arn:fn/none', FunctionName: 'none', Runtime: 'python3.13' },
-  ] });
-  const { resources } = await lambda.run(ctx);
-  const findings = evaluateAll(await loadRulesFromDir(rulesDir), resources);
-  assert.deepEqual(findings.map((f) => [f.resource.address, f.status]), [['arn:fn/old', 'fail'], ['arn:fn/new', 'pass']]);
-  m.restore();
 });
 
 const event = (kx: string | undefined, ua = 'aws-cli/2.15.30') => JSON.stringify({ userAgent: ua, ...(kx ? { tlsDetails: { tlsVersion: 'TLSv1.3', keyExchange: kx } } : {}) });

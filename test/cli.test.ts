@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, readdir, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +26,7 @@ test('scan a Terraform directory: all four outputs plus patches, exit 0, exit 1 
   const out = await mkdtemp(join(tmpdir(), 'edgepq-'));
   const r = await run(['scan', 'test/fixtures/rules/ELB-KX-001', '--out', out]);
   assert.equal(r.code, 0, r.stderr);
-  assert.match(r.stdout, /failed 3\s+could not check 1\s+already enabled 3/);
+  assert.match(r.stdout, /failed 3\s+not configurable 0\s+could not check 4\s+already enabled 3/);
   assert.match(r.stdout, /patches: 3 written, never applied/);
   const names = (await readdir(out)).sort();
   assert.deepEqual(names, ['edgepq-cbom.cdx.json', 'edgepq-findings.json', 'edgepq-report.html', 'edgepq-report.md', 'patches']);
@@ -72,6 +72,16 @@ test('usage errors exit 2 and say why', async () => {
   assert.match(notJson.stderr, /neither a Terraform plan nor a state/);
 });
 
+test('a file that does not parse makes the scan exit 2 and name the file', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'edgepq-broken-'));
+  await writeFile(join(dir, 'good.tf'), 'resource "aws_kms_key" "k" {}\n');
+  await writeFile(join(dir, 'bad.tf'), 'resource "a" "b" {\n');
+  const r = await run(['scan', dir, '--out', join(dir, 'out')]);
+  assert.equal(r.code, 2);
+  assert.match(r.stderr, /bad\.tf did not parse/);
+  assert.ok((await readdir(join(dir, 'out'))).includes('edgepq-findings.json'), 'outputs are still written');
+});
+
 test('rules lists every rule with its sources', async () => {
   const r = await run(['rules']);
   assert.equal(r.code, 0);
@@ -83,7 +93,8 @@ test('rules lists every rule with its sources', async () => {
 test('verify against nothing listening is inconclusive, not a crash', async () => {
   const r = await run(['verify', '127.0.0.1:1', '--json', '--timeout', '1000']);
   assert.equal(r.code, 0, r.stderr);
-  const result = JSON.parse(r.stdout);
+  const result = JSON.parse(r.stdout) as { verdict: string; reachable: boolean; target: { host: string; port: number } };
   assert.equal(result.verdict, 'inconclusive');
   assert.equal(result.reachable, false);
+  assert.deepEqual(result.target, { host: '127.0.0.1', port: 1, servername: '127.0.0.1' });
 });

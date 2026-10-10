@@ -46,23 +46,21 @@ data "aws_iam_policy_document" "readonly" {
       "kms:DescribeKey",
       "acm:ListCertificates",
       "acm-pca:ListCertificateAuthorities",
-      "lambda:ListFunctions",
       "ec2:DescribeRegions",
     ]
     resources = ["*"]
   }
 
-  # API Gateway authorises HTTP verbs against resource paths. GET on the
-  # domain names and REST API collections (and their children, which the
-  # paginated listing returns) is what GetDomainNames and GetRestApis need.
+  # API Gateway authorises HTTP verbs against resource paths. The collectors
+  # call GetDomainNames and GetRestApis only: GET on the two collection paths,
+  # paginated with the `position` parameter. Nothing under /restapis/* (the
+  # resources, stages, stage variables, exports of an API) is readable.
   statement {
     sid     = "ApiGatewayRead"
     actions = ["apigateway:GET"]
     resources = [
       "arn:${data.aws_partition.current.partition}:apigateway:*::/domainnames",
-      "arn:${data.aws_partition.current.partition}:apigateway:*::/domainnames/*",
       "arn:${data.aws_partition.current.partition}:apigateway:*::/restapis",
-      "arn:${data.aws_partition.current.partition}:apigateway:*::/restapis/*",
     ]
   }
 

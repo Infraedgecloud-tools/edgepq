@@ -6,9 +6,27 @@ severity: high
 applies_when:
   attr: endpoint_configuration.types
   in: [REGIONAL, PRIVATE]
+# A SecurityPolicy_ value without endpoint_access_mode, or combined with
+# mutual TLS, is a configuration the API rejects; it is reported as
+# could-not-check rather than as a pass.
+unknown_when:
+  any:
+    - not:
+        attr: security_policy
+        in: [SecurityPolicy_TLS13_1_2_2021_06, SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09, SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09, SecurityPolicy_TLS13_1_2_PQ_2025_09, SecurityPolicy_TLS13_1_3_2025_09, SecurityPolicy_TLS13_1_3_FIPS_2025_09, TLS_1_0, TLS_1_2]
+    - all:
+        - attr: security_policy
+          matches: "^SecurityPolicy_"
+        - attr: endpoint_access_mode
+          absent: true
+    - all:
+        - attr: security_policy
+          matches: "^SecurityPolicy_"
+        - attr: mutual_tls_authentication
+          present: true
 pass_when:
   attr: security_policy
-  matches: "_PQ_"
+  in: [SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09, SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09, SecurityPolicy_TLS13_1_2_PQ_2025_09]
 defaults:
   security_policy: TLS_1_2
 fix:
@@ -18,11 +36,15 @@ fix:
   safety: review
   also_set:
     endpoint_access_mode: BASIC
+  unless:
+    attr: mutual_tls_authentication
+    present: true
+  unless_note: "This domain uses mutual TLS, and API Gateway does not allow mutual TLS on a domain with an enhanced (SecurityPolicy_) policy, so no policy change is written. The choice is between client certificates and hybrid post-quantum key exchange on this domain; a second regional domain, or a REST API behind a regional domain with a PQ policy, can carry the traffic that does not need mTLS."
   note: "Any policy starting with SecurityPolicy_ also needs endpoint_access_mode (BASIC first, STRICT once access logs confirm no cross-endpoint traffic), cannot be combined with mutual TLS, and cannot be mapped to an HTTP API. The patch sets BASIC."
 message:
   fail: "{address} negotiates TLS with {security_policy}, a legacy policy with classical key exchange only. Policies containing PQ add hybrid post-quantum key exchange for clients that offer it."
   pass: "{address} uses {security_policy}, which offers hybrid post-quantum key exchange. Clients without ML-KEM support still negotiate classically."
-  unknown: "{address}: security_policy or the endpoint type is not a literal value, so it could not be checked offline. Run the scan on a plan, or on the account, to see the value."
+  unknown: "{address}: security_policy is {security_policy}. Either it or the endpoint type is not a literal value (run the scan on a plan, or on the account, to see it), or it is not a policy name AWS's API reference accepts for this endpoint type (check the spelling; the developer guide spells the FIPS post-quantum policy SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09 where the API reference says SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09, and the API reference is what the service validates against), or it is a SecurityPolicy_ value without the endpoint_access_mode the API requires, or with mutual TLS, which the API does not allow with an enhanced policy. The API rejects those configurations."
 sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
     verified: 2026-10-10
@@ -30,6 +52,7 @@ sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
     verified: 2026-10-10
     quote: "Regional domain: TLS_1_2. Edge-optimized domain: TLS_1_2. Private domain: TLS_1_2 (default security policies)."
+    paraphrase: true
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
     verified: 2026-10-10
     quote: "When you use an enhanced security policy, you must also set the endpoint access mode for additional governance. You can't enable mutual TLS on a domain name that uses an enhanced security policy. You can't map an HTTP API to a domain name that uses an enhanced security policy."

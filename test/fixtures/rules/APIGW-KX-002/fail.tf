@@ -6,9 +6,3 @@ resource "aws_api_gateway_domain_name" "edge_explicit" {
     types = ["EDGE"]
   }
 }
-
-# No endpoint_configuration: the provider defaults the type to EDGE.
-resource "aws_api_gateway_domain_name" "edge_by_default" {
-  domain_name     = "www.example.com"
-  certificate_arn = var.cert
-}

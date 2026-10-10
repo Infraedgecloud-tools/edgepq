@@ -3,9 +3,13 @@ title: Private CA signs with a classical algorithm
 resource_types: [aws_acmpca_certificate_authority]
 category: signature
 severity: low
+unknown_when:
+  not:
+    attr: certificate_authority_configuration.key_algorithm
+    in: [RSA_2048, RSA_3072, RSA_4096, EC_prime256v1, EC_secp384r1, EC_secp521r1, ML_DSA_44, ML_DSA_65, ML_DSA_87, SM2]
 pass_when:
   attr: certificate_authority_configuration.key_algorithm
-  matches: "^ML_DSA_"
+  in: [ML_DSA_44, ML_DSA_65, ML_DSA_87]
 fix:
   kind: guidance
   safety: none
@@ -13,7 +17,7 @@ fix:
 message:
   fail: "{address} is a private CA with key algorithm {certificate_authority_configuration.key_algorithm}. Its certificates are classical signatures; whether that matters depends on how long they must stay trustworthy and on whether the relying parties could verify ML-DSA at all."
   pass: "{address} is an ML-DSA private CA ({certificate_authority_configuration.key_algorithm}). Relying parties must verify ML-DSA; ACM-integrated TLS services cannot use its certificates."
-  unknown: "{address}: the CA key algorithm could not be determined offline."
+  unknown: "{address}: key_algorithm is {certificate_authority_configuration.key_algorithm}. Either it is not a literal value, or it is not a value the Private CA API accepts; check the spelling."
 sources:
   - url: https://docs.aws.amazon.com/privateca/latest/APIReference/API_CertificateAuthorityConfiguration.html
     verified: 2026-10-10

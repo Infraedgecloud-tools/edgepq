@@ -10,7 +10,7 @@ import { buildPatchesWithSkips, combinePatches } from '../patch/index.ts';
 import type { ScanReport } from '../render/types.ts';
 import type { TerraformInput } from '../node/read-terraform.ts';
 
-export type Written = { files: string[]; patches: number; patchesSkipped: { ruleId: string; address: string; reason: string }[] };
+export type Written = { files: string[]; patches: number; patchesSkipped: { ruleId: string; address: string; reason: string }[]; perFixFilesOmitted?: boolean };
 
 export const OUTPUT_NAMES = {
   json: 'edgepq-findings.json',
@@ -29,24 +29,35 @@ export async function writeOutputs(report: ScanReport, outDir: string, source?: 
     await writeFile(join(outDir, name), contents);
     files.push(name);
   };
+  const written: Written = { files, patches: 0, patchesSkipped: [] };
+
+  /* Patches first, so the fixes that could not be written are in the report. */
+  let patches: ReturnType<typeof buildPatchesWithSkips>['patches'] = [];
+  if (source && source.input.kind === 'hcl' && report.input.kind === 'hcl') {
+    const sources = await Promise.all(source.input.files.map(async (name) => ({ name, contents: await readFile(join(source.target, name), 'utf8') })));
+    const built = buildPatchesWithSkips(report.findings, sources);
+    patches = built.patches;
+    written.patchesSkipped = built.skipped.map((s) => ({ ruleId: s.ruleId, address: s.address, reason: s.reason }));
+    if (written.patchesSkipped.length) report.input.patches_skipped = written.patchesSkipped;
+  }
+
   await put(OUTPUT_NAMES.json, renderJson(report));
   await put(OUTPUT_NAMES.markdown, renderMarkdown(report));
   await put(OUTPUT_NAMES.html, renderHtml(report));
   await put(OUTPUT_NAMES.cbom, renderCbomJson(report));
-
-  const written: Written = { files, patches: 0, patchesSkipped: [] };
-  if (!source || source.input.kind !== 'hcl') return written;
-
-  /* Patches need the source text, under the names the adapter used. */
-  const sources = await Promise.all(source.input.files.map(async (name) => ({ name, contents: await readFile(join(source.target, name), 'utf8') })));
-  const { patches, skipped } = buildPatchesWithSkips(report.findings, sources);
-  written.patchesSkipped = skipped.map((s) => ({ ruleId: s.ruleId, address: s.address, reason: s.reason }));
   if (patches.length === 0) return written;
   await mkdir(join(outDir, OUTPUT_NAMES.patchesDir), { recursive: true });
-  for (const p of patches) {
-    const name = `${OUTPUT_NAMES.patchesDir}/${p.ruleId}-${p.address.replace(/[^A-Za-z0-9_.-]+/g, '_')}.patch`;
-    await put(name, p.diff);
-    written.patches += 1;
+  /* One file per fix is useful up to a point; past it the combined patches
+     and the JSON carry the same information without a thousand files. */
+  const PER_FIX_LIMIT = 200;
+  written.patches = patches.length;
+  if (patches.length <= PER_FIX_LIMIT) {
+    for (const p of patches) {
+      const name = `${OUTPUT_NAMES.patchesDir}/${p.ruleId}-${p.address.replace(/[^A-Za-z0-9_.-]+/g, '_')}.patch`;
+      await put(name, p.diff);
+    }
+  } else {
+    written.perFixFilesOmitted = true;
   }
   const auto = combinePatches(patches, { safety: 'auto' });
   if (auto.included.length) await put(`${OUTPUT_NAMES.patchesDir}/${OUTPUT_NAMES.autoPatch}`, auto.diff);

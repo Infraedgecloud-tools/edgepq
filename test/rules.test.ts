@@ -53,12 +53,12 @@ for (const rule of rules) {
     const fail = await statusesFor(rule, join(dir, 'fail.tf'));
     assert.equal(fail.notes, 0, 'fixture must parse cleanly');
     assert.ok(fail.statuses.length > 0, 'fail.tf has no resource the rule applies to');
-    assert.deepEqual([...new Set(fail.statuses)], ['fail'], `fail.tf statuses: ${fail.statuses.join(', ')}`);
+    assert.deepEqual([...new Set(fail.statuses)], [rule.fail_as ?? 'fail'], `fail.tf statuses: ${fail.statuses.join(', ')}`);
 
     const pass = await statusesFor(rule, join(dir, 'pass.tf'));
     assert.equal(pass.notes, 0, 'fixture must parse cleanly');
     if (pass.marker) {
-      assert.ok(!pass.statuses.includes('fail') && !pass.statuses.includes('unknown'), `marked pass.tf must be free of failures: ${pass.statuses.join(', ')}`);
+      assert.ok(!pass.statuses.includes('fail') && !pass.statuses.includes('not_configurable') && !pass.statuses.includes('unknown'), `marked pass.tf must be free of failures: ${pass.statuses.join(', ')}`);
     } else {
       assert.ok(pass.statuses.length > 0, 'pass.tf has no resource the rule applies to');
       assert.deepEqual([...new Set(pass.statuses)], ['pass'], `pass.tf statuses: ${pass.statuses.join(', ')}`);
@@ -73,6 +73,17 @@ for (const rule of rules) {
   });
 }
 
+test('APIGW-KX-001: mutual TLS turns the fix into guidance', async () => {
+  const rule = rules.find((r) => r.id === 'APIGW-KX-001')!;
+  const contents = await readFile(join(fixturesDir, 'APIGW-KX-001/fail.tf'), 'utf8');
+  const scan = await scanHclFiles([{ name: 'fail.tf', contents }], parseHcl);
+  const findings = evaluateAll([rule], scan.resources);
+  const mtls = findings.find((f) => f.resource.address === 'aws_api_gateway_domain_name.mtls_legacy')!;
+  assert.equal(mtls.status, 'fail');
+  assert.equal(mtls.fix?.kind, 'guidance');
+  assert.ok(findings.some((f) => f.resource.address === 'aws_api_gateway_domain_name.regional_legacy' && f.fix?.kind === 'set-attribute'));
+});
+
 test('ELB-KX-001 policy_map matches the generated policy data', async () => {
   const data = JSON.parse(await readFile(join(rulesDir, 'data/elb-security-policies.json'), 'utf8')) as {
     pq_superset: { [k: string]: { value: string; safety: string; note: string } };
@@ -80,6 +91,13 @@ test('ELB-KX-001 policy_map matches the generated policy data', async () => {
   };
   const rule = rules.find((r) => r.id === 'ELB-KX-001')!;
   assert.deepEqual(rule.tables?.policy_map, data.pq_superset);
+  /* The known-policy and PQ-policy lists in the predicates are the data file's too. */
+  const all = Object.keys(data.policies).sort();
+  const pq = all.filter((n) => data.policies[n]!.post_quantum);
+  const inList = (pred: unknown): string[] => (pred as { in: string[] }).in;
+  const policyNot = (rule.unknown_when as { any: { not: { attr: string } }[] }).any.find((p) => p.not.attr === 'ssl_policy')!.not;
+  assert.deepEqual([...inList(policyNot)].sort(), all);
+  assert.deepEqual([...inList(rule.pass_when)].sort(), pq);
   /* And every classical policy AWS documents has a mapping. */
   const classical = Object.entries(data.policies).filter(([, p]) => !p.post_quantum).map(([n]) => n).sort();
   assert.deepEqual(Object.keys(data.pq_superset).sort(), classical);

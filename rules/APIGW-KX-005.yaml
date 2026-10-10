@@ -13,6 +13,7 @@ applies_when:
     - not:
         attr: disable_execute_api_endpoint
         eq: true
+fail_as: not_configurable
 pass_when:
   attr: endpoint_configuration.types
   in: [REGIONAL, PRIVATE]
@@ -28,6 +29,7 @@ sources:
   - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
     verified: 2026-10-10
     quote: "Supported security policies for edge-optimized APIs and custom domain names: SecurityPolicy_TLS13_2025_EDGE, SecurityPolicy_TLS12_PFS_2025_EDGE, SecurityPolicy_TLS12_2018_EDGE, TLS_1_2 (edge-optimized custom domain names only), TLS_1_0."
+    paraphrase: true
   - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/api_gateway_rest_api.html.markdown
     verified: 2026-10-10
     quote: "types - (Required) List of endpoint types. Valid values: EDGE, REGIONAL or PRIVATE. If unspecified, defaults to EDGE."

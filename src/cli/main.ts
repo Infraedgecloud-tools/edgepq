@@ -43,12 +43,12 @@ function summary(report: ScanReport, written: Written, outDir: string): string {
   const count = (status: string) => report.findings.filter((f) => f.status === status).length;
   const lines = [
     `edgepq ${report.tool.version}: ${report.resources.length} resource(s), ${report.rules.length} rule(s)`,
-    `  failed ${count('fail')}   could not check ${count('unknown')}   already enabled ${count('pass')}`,
+    `  failed ${count('fail')}   not configurable ${count('not_configurable')}   could not check ${count('unknown')}   already enabled ${count('pass')}`,
   ];
   if (report.input.kind === 'hcl' && report.input.notes.length) lines.push(`  not inspected: ${report.input.notes.length} item(s) (module calls, dynamic blocks or parse errors; see the report)`);
   if (report.input.kind === 'aws' && report.input.not_checked.length) lines.push(`  not checked: ${report.input.not_checked.length} account/region/service combination(s); see the report`);
-  if (written.patches) lines.push(`  patches: ${written.patches} written, never applied`);
-  if (written.patchesSkipped.length) lines.push(`  patches not written: ${written.patchesSkipped.length} (value is not a literal or the block is ambiguous)`);
+  if (written.patches) lines.push(`  patches: ${written.patches} written, never applied${written.perFixFilesOmitted ? ' (combined patches only: more than 200 fixes)' : ''}`);
+  for (const s of written.patchesSkipped) lines.push(`  patch not written: ${s.ruleId} ${s.address}: ${s.reason}`);
   lines.push(`  outputs: ${outDir}/ (${written.files.filter((f) => !f.includes('/')).join(', ')}${written.patches ? ', patches/' : ''})`);
   return lines.join('\n');
 }
@@ -101,6 +101,13 @@ async function scan(args: string[], io: Io): Promise<number> {
   const { report, input } = await reportForTerraform(target, await loadRules());
   const written = await writeOutputs(report, outDir, { target, input });
   io.out(summary(report, written, outDir));
+  /* A file the tool could not read is an input error, not a clean scan: the
+     outputs are still written, but the exit code says the tree was not covered. */
+  const unreadable = report.input.kind === 'hcl' ? report.input.notes.filter((n) => n.kind === 'parse-error') : [];
+  if (unreadable.length) {
+    for (const n of unreadable) if (n.kind === 'parse-error') io.err(`edgepq: ${n.file} did not parse: ${n.message}`);
+    return 2;
+  }
   return threshold && severityAtOrAbove(report, threshold) > 0 ? 1 : 0;
 }
 
@@ -131,10 +138,7 @@ async function verify(args: string[], io: Io): Promise<number> {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { servername: { type: 'string' }, json: { type: 'boolean' }, timeout: { type: 'string' } } });
   const target = positionals[0];
   if (!target) throw new UsageError('verify needs a host or host:port');
-  const m = /^(\[?[^\]]+\]?|[^:]+)(?::(\d+))?$/.exec(target);
-  if (!m) throw new UsageError(`cannot read '${target}' as host[:port]`);
-  const host = (m[1] as string).replace(/^\[|\]$/g, '');
-  const port = m[2] ? Number(m[2]) : 443;
+  const { host, port } = parseHostPort(target);
   const result = await probe({ host, port, ...(values.servername ? { servername: values.servername } : {}) }, { timeoutMs: values.timeout ? Number(values.timeout) : 5000 });
   if (values.json) { io.out(JSON.stringify(result, null, 2)); return 0; }
   const b = result.browser_offer;
@@ -148,6 +152,17 @@ async function verify(args: string[], io: Io): Promise<number> {
   ];
   io.out(lines.join('\n'));
   return 0;
+}
+
+/* host, host:port, [v6], [v6]:port. A bare IPv6 literal without brackets
+   cannot carry a port, which is how the last colon is disambiguated. */
+export function parseHostPort(target: string): { host: string; port: number } {
+  const bracketed = /^\[([^\]]+)\](?::(\d{1,5}))?$/.exec(target);
+  if (bracketed) return { host: bracketed[1] as string, port: bracketed[2] ? Number(bracketed[2]) : 443 };
+  const plain = /^([^:]+)(?::(\d{1,5}))?$/.exec(target);
+  if (plain) return { host: plain[1] as string, port: plain[2] ? Number(plain[2]) : 443 };
+  if (/^[0-9a-fA-F:]+$/.test(target)) return { host: target, port: 443 };
+  throw new UsageError(`cannot read '${target}' as host[:port]`);
 }
 
 async function rules(io: Io): Promise<number> {
