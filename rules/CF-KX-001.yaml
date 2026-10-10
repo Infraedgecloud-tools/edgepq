@@ -1,0 +1,27 @@
+id: CF-KX-001
+title: CloudFront distribution lets viewers connect without TLS
+resource_types: [aws_cloudfront_distribution]
+category: key-exchange
+severity: medium
+pass_when:
+  not:
+    any:
+      - attr: default_cache_behavior.viewer_protocol_policy
+        eq: allow-all
+      - attr: ordered_cache_behavior[*].viewer_protocol_policy
+        eq: allow-all
+fix:
+  kind: guidance
+  safety: none
+  note: "Set viewer_protocol_policy to redirect-to-https (or https-only for APIs) on every cache behavior. Nothing else is needed for post-quantum key exchange on the viewer side: CloudFront negotiates X25519MLKEM768 or SecP256r1MLKEM768 with any TLS 1.3 viewer that offers them, under every security policy."
+message:
+  fail: "{address} has a cache behavior with viewer_protocol_policy = allow-all, so viewers can fetch over plain HTTP where no key exchange of any kind protects the traffic. For HTTPS viewers, CloudFront already offers hybrid post-quantum key exchange on TLS 1.3; the plain-HTTP path is the part in your hands."
+  pass: "{address} requires HTTPS from viewers. CloudFront offers X25519MLKEM768 and SecP256r1MLKEM768 to TLS 1.3 viewers under every security policy; there is nothing to enable. Connections from the edge to your origin are not covered by this check."
+  unknown: "{address}: a cache behavior's viewer_protocol_policy could not be determined offline (a dynamic block or an expression)."
+sources:
+  - url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/secure-connections-supported-viewer-protocols-ciphers.html
+    verified: 2026-10-10
+    quote: "For quantum-safe key exchanges, CloudFront supports the following: X25519MLKEM768, SecP256r1MLKEM768. Quantum-safe key exchanges are only supported with TLS 1.3. TLS 1.2 and earlier versions do not support quantum-safe key exchanges."
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/cloudfront_distribution.html.markdown
+    verified: 2026-10-10
+    quote: "viewer_protocol_policy (Required) - One of allow-all, https-only, or redirect-to-https."

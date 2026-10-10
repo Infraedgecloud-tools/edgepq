@@ -1,0 +1,25 @@
+id: APIGW-KX-006
+title: HTTP or WebSocket API custom domain cannot use a post-quantum security policy
+resource_types: [aws_apigatewayv2_domain_name]
+category: key-exchange
+severity: low
+pass_when:
+  attr: domain_name_configuration.security_policy
+  matches: "_PQ_"
+defaults:
+  domain_name_configuration.security_policy: TLS_1_2
+fix:
+  kind: guidance
+  safety: none
+  note: "API Gateway accepts only TLS_1_2 for HTTP and WebSocket API domains, and a domain with an enhanced policy cannot be mapped to an HTTP API. Serving the same routes from a REST API behind a regional custom domain with SecurityPolicy_TLS13_1_2_PQ_2025_09 is the only documented path."
+message:
+  fail: "{address} is an HTTP or WebSocket API domain using {domain_name_configuration.security_policy}. API Gateway offers no post-quantum policy for these APIs, so this cannot be fixed by a policy change."
+  pass: "{address} uses a post-quantum policy."
+  unknown: "{address}: the security policy could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    verified: 2026-10-10
+    quote: "API Gateway supports security policies on all APIs. However, you can only choose a security policy for REST APIs. API Gateway only supports the TLS_1_2 security policy for HTTP or WebSocket APIs."
+  - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    verified: 2026-10-10
+    quote: "You can't map an HTTP API to a domain name that uses an enhanced security policy."

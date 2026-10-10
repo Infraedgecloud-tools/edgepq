@@ -14,7 +14,10 @@ const rule: Rule = validateRule({
   pass_when: { attr: 'ssl_policy', matches: '-PQ-' },
   defaults: { ssl_policy: 'ELBSecurityPolicy-2016-08' },
   fix: { kind: 'set-attribute', attr: 'ssl_policy', value_from: 'policies', safety: 'review' },
-  tables: { policies: { 'ELBSecurityPolicy-2016-08': 'ELBSecurityPolicy-TLS13-1-0-PQ-2025-09' } },
+  tables: { policies: {
+    'ELBSecurityPolicy-2016-08': 'ELBSecurityPolicy-TLS13-1-0-PQ-2025-09',
+    'ELBSecurityPolicy-TLS13-1-2-2021-06': { value: 'ELBSecurityPolicy-TLS13-1-2-PQ-2025-09', safety: 'auto', note: 'superset' },
+  } },
   message: { fail: '{address} uses {ssl_policy}', pass: '{address} ok', unknown: '{address} unknown' },
   sources: [{ url: 'https://docs.aws.amazon.com/x', verified: '2026-10-10' }],
 });
@@ -29,6 +32,17 @@ test('fail with the default applied and a mapped fix', () => {
   assert.equal(f.message, 'aws_lb_listener.a uses ELBSecurityPolicy-2016-08');
   assert.deepEqual(f.observed.ssl_policy, { value: 'ELBSecurityPolicy-2016-08', defaulted: true });
   assert.deepEqual(f.fix, { kind: 'set-attribute', attr: 'ssl_policy', value: 'ELBSecurityPolicy-TLS13-1-0-PQ-2025-09', safety: 'review' });
+});
+
+test('a table entry carries its own safety and note', () => {
+  const f = evaluatePair(rule, listener({ protocol: 'HTTPS', ssl_policy: 'ELBSecurityPolicy-TLS13-1-2-2021-06' }));
+  assert.deepEqual(f?.fix, { kind: 'set-attribute', attr: 'ssl_policy', value: 'ELBSecurityPolicy-TLS13-1-2-PQ-2025-09', safety: 'auto', note: 'superset' });
+});
+
+test('also_set travels with the resolved fix', () => {
+  const r: Rule = { ...rule, fix: { kind: 'set-attribute', attr: 'ssl_policy', value: 'X-PQ-1', safety: 'review', also_set: { endpoint_access_mode: 'BASIC' } } };
+  const f = evaluatePair(r, listener({ protocol: 'HTTPS' }));
+  assert.deepEqual(f?.fix, { kind: 'set-attribute', attr: 'ssl_policy', value: 'X-PQ-1', safety: 'review', also_set: { endpoint_access_mode: 'BASIC' } });
 });
 
 test('no mapping means guidance, not an invented target', () => {

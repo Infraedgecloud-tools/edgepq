@@ -1,0 +1,53 @@
+id: APIGW-KX-004
+title: Private REST API default endpoint does not use a post-quantum security policy
+resource_types: [aws_api_gateway_rest_api]
+category: key-exchange
+severity: high
+applies_when:
+  all:
+    - attr: endpoint_configuration.types
+      in: [PRIVATE]
+    - not:
+        attr: disable_execute_api_endpoint
+        eq: true
+pass_when:
+  attr: security_policy
+  matches: "_PQ_"
+defaults:
+  security_policy: TLS_1_2
+fix:
+  kind: set-attribute
+  attr: security_policy
+  value_from: policy_map
+  safety: review
+  also_set:
+    endpoint_access_mode: BASIC
+  note: "A SecurityPolicy_ value also needs endpoint_access_mode (BASIC first, STRICT after validating access logs). The patch sets BASIC. The API's own policy applies only to the default execute-api endpoint; a custom domain negotiates with its own policy."
+message:
+  fail: "{address} serves its default execute-api endpoint with {security_policy}: classical key exchange only. SecurityPolicy_TLS13_1_2_PQ_2025_09 adds hybrid post-quantum key exchange."
+  pass: "{address} serves its default endpoint with {security_policy}, which offers hybrid post-quantum key exchange."
+  unknown: "{address}: security_policy or the endpoint type is {security_policy}, so it could not be checked offline."
+sources:
+  - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
+    verified: 2026-10-10
+    quote: "Regional APIs: TLS_1_0. Edge-optimized APIs: TLS_1_0. Private APIs: TLS_1_2 (default security policies)."
+  - url: https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRestApi.html
+    verified: 2026-10-10
+    quote: "securityPolicy Valid Values: TLS_1_0 | TLS_1_2 | SecurityPolicy_TLS13_1_3_2025_09 | SecurityPolicy_TLS13_1_3_FIPS_2025_09 | SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09 | SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09 | SecurityPolicy_TLS13_1_2_PQ_2025_09 | SecurityPolicy_TLS13_1_2_2021_06 | SecurityPolicy_TLS13_2025_EDGE | SecurityPolicy_TLS12_PFS_2025_EDGE | SecurityPolicy_TLS12_2018_EDGE"
+  - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies.html
+    verified: 2026-10-10
+    quote: "Endpoint access mode is an additional parameter that you must specify for any REST API or custom domain name that uses an enhanced security policy that begins with SecurityPolicy_."
+tables:
+  policy_map:
+    TLS_1_0:
+      value: SecurityPolicy_TLS13_1_2_PQ_2025_09
+      safety: review
+      note: "No post-quantum policy accepts TLS 1.0 or 1.1. Clients still on those versions lose access; check $context.tlsVersion in the access logs first."
+    TLS_1_2:
+      value: SecurityPolicy_TLS13_1_2_PQ_2025_09
+      safety: review
+      note: "Same TLS versions and cipher suites as TLS_1_2 plus hybrid post-quantum key exchange; review is for the endpoint_access_mode requirement."
+    SecurityPolicy_TLS13_1_2_2021_06:
+      value: SecurityPolicy_TLS13_1_2_PQ_2025_09
+      safety: auto
+      note: "Identical TLS versions and cipher suites plus hybrid post-quantum key exchange."

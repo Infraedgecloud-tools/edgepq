@@ -1,0 +1,31 @@
+id: APIGW-KX-002
+title: Edge-optimized API Gateway custom domain has no post-quantum security policy available
+resource_types: [aws_api_gateway_domain_name]
+category: key-exchange
+severity: low
+applies_when:
+  any:
+    - attr: endpoint_configuration
+      absent: true
+    - attr: endpoint_configuration.types
+      in: [EDGE]
+pass_when:
+  # Nothing an edge-optimized domain can set passes; the pass branch is the
+  # regional or private domain that APIGW-KX-001 checks instead.
+  attr: endpoint_configuration.types
+  in: [REGIONAL, PRIVATE]
+fix:
+  kind: guidance
+  safety: none
+  note: "API Gateway offers no PQ policy for edge-optimized domains (the EDGE policies are SecurityPolicy_TLS13_2025_EDGE, SecurityPolicy_TLS12_PFS_2025_EDGE and SecurityPolicy_TLS12_2018_EDGE). A REGIONAL domain can use SecurityPolicy_TLS13_1_2_PQ_2025_09. Edge-optimized endpoints terminate TLS at CloudFront's edge and AWS does not document their key exchange: run `edgepq verify <domain>` to see what is negotiated today."
+message:
+  fail: "{address} is edge-optimized (the default when endpoint_configuration is not set). No post-quantum security policy exists for edge-optimized domains, so this is not something a policy change can fix."
+  pass: "{address} is a regional or private domain; see APIGW-KX-001."
+  unknown: "{address}: the endpoint type could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
+    verified: 2026-10-10
+    quote: "Supported security policies for edge-optimized APIs and custom domain names: SecurityPolicy_TLS13_2025_EDGE, SecurityPolicy_TLS12_PFS_2025_EDGE, SecurityPolicy_TLS12_2018_EDGE, TLS_1_2 (edge-optimized custom domain names only), TLS_1_0."
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/api_gateway_rest_api.html.markdown
+    verified: 2026-10-10
+    quote: "types - (Required) List of endpoint types. Valid values: EDGE, REGIONAL or PRIVATE. If unspecified, defaults to EDGE."

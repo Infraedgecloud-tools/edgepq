@@ -1,0 +1,31 @@
+id: CF-KX-002
+title: CloudFront security policy still admits TLS 1.0 and 1.1 viewers, which never get post-quantum key exchange
+resource_types: [aws_cloudfront_distribution]
+category: inventory
+severity: low
+applies_when:
+  not:
+    attr: viewer_certificate.cloudfront_default_certificate
+    eq: true
+pass_when:
+  attr: viewer_certificate.minimum_protocol_version
+  in: [TLSv1.2_2018, TLSv1.2_2019, TLSv1.2_2021, TLSv1.2_2025, TLSv1.3_2025]
+defaults:
+  viewer_certificate.minimum_protocol_version: TLSv1
+fix:
+  kind: set-attribute
+  attr: viewer_certificate.minimum_protocol_version
+  value: TLSv1.2_2021
+  safety: review
+  note: "Viewers that can only speak TLS 1.0 or 1.1 lose access. TLS 1.3 viewers already negotiate hybrid post-quantum key exchange whatever the minimum is; raising it changes what legacy viewers get, not what modern ones do."
+message:
+  fail: "{address} sets minimum_protocol_version = {viewer_certificate.minimum_protocol_version}, so TLS 1.0 and 1.1 viewers are accepted. Those connections cannot use post-quantum key exchange; TLS 1.3 viewers of the same distribution already do."
+  pass: "{address} requires {viewer_certificate.minimum_protocol_version} or later from viewers. TLS 1.3 viewers negotiate hybrid post-quantum key exchange; TLS 1.2 viewers do not, and no CloudFront setting changes that."
+  unknown: "{address}: minimum_protocol_version could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/secure-connections-supported-viewer-protocols-ciphers.html
+    verified: 2026-10-10
+    quote: "Quantum-safe key exchanges are only supported with TLS 1.3. TLS 1.2 and earlier versions do not support quantum-safe key exchanges."
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/cloudfront_distribution.html.markdown
+    verified: 2026-10-10
+    quote: "minimum_protocol_version - Minimum version of the SSL protocol that you want CloudFront to use for HTTPS connections. Can only be set if cloudfront_default_certificate = false. Default: TLSv1."

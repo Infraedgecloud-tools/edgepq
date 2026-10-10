@@ -9,7 +9,7 @@
    ========================================================================= */
 
 import { CATEGORY_ORDER, SEVERITY_ORDER } from './types.ts';
-import type { AttrValue, Fix, Predicate, Rule, Source } from './types.ts';
+import type { AttrValue, Fix, Predicate, Rule, Source, TableEntry } from './types.ts';
 
 export class RuleError extends Error {
   readonly ruleId: string;
@@ -104,10 +104,15 @@ function validateFix(id: string, v: unknown, tables: Rule['tables']): Fix {
   if (safety !== 'auto' && safety !== 'review' && safety !== 'none') throw new RuleError(id, 'fix.safety must be auto, review or none');
   if (typeof v.attr !== 'string' || !v.attr) throw new RuleError(id, 'fix.attr is required');
   const note = typeof v.note === 'string' ? { note: v.note } : {};
-  if (typeof v.value === 'string') return { kind: 'set-attribute', attr: v.attr, value: v.value, safety, ...note };
+  let alsoSet: { also_set?: { [attr: string]: string } } = {};
+  if (v.also_set !== undefined) {
+    if (!isRecord(v.also_set) || !Object.values(v.also_set).every((x) => typeof x === 'string')) throw new RuleError(id, 'fix.also_set must map attributes to strings');
+    alsoSet = { also_set: v.also_set as { [attr: string]: string } };
+  }
+  if (typeof v.value === 'string') return { kind: 'set-attribute', attr: v.attr, value: v.value, safety, ...note, ...alsoSet };
   if (typeof v.value_from === 'string') {
     if (!tables || !(v.value_from in tables)) throw new RuleError(id, `fix.value_from refers to table '${v.value_from}' which the rule does not define`);
-    return { kind: 'set-attribute', attr: v.attr, value_from: v.value_from, safety, ...note };
+    return { kind: 'set-attribute', attr: v.attr, value_from: v.value_from, safety, ...note, ...alsoSet };
   }
   throw new RuleError(id, 'fix needs value or value_from');
 }
@@ -134,10 +139,19 @@ export function validateRule(raw: unknown): Rule {
     if (!isRecord(raw.tables)) throw new RuleError(id, 'tables must be a mapping');
     tables = {};
     for (const [name, table] of Object.entries(raw.tables)) {
-      if (!isRecord(table) || !Object.values(table).every((x) => typeof x === 'string')) {
-        throw new RuleError(id, `tables.${name} must map strings to strings`);
+      if (!isRecord(table)) throw new RuleError(id, `tables.${name} must be a mapping`);
+      const entries: { [k: string]: TableEntry } = {};
+      for (const [from, entry] of Object.entries(table)) {
+        if (typeof entry === 'string') { entries[from] = entry; continue; }
+        if (!isRecord(entry) || typeof entry.value !== 'string' || !['auto', 'review', 'none'].includes(entry.safety as string)
+          || (entry.note !== undefined && typeof entry.note !== 'string')) {
+          throw new RuleError(id, `tables.${name}.${from} must be a string or { value, safety, note? }`);
+        }
+        const e: TableEntry = { value: entry.value, safety: entry.safety as Fix['safety'] };
+        if (typeof entry.note === 'string') e.note = entry.note;
+        entries[from] = e;
       }
-      tables[name] = table as { [k: string]: string };
+      tables[name] = entries;
     }
   }
   let defaults: Rule['defaults'];

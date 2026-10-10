@@ -14,16 +14,36 @@ import type { AttrValue, Finding, ResolvedFix, Resource, Rule, Status } from './
 function withDefaults(rule: Rule, resource: Resource): { resource: Resource; defaulted: Set<string> } {
   const defaulted = new Set<string>();
   if (!rule.defaults) return { resource, defaulted };
-  const attrs = { ...resource.attrs };
+  let attrs = resource.attrs;
   for (const [attr, value] of Object.entries(rule.defaults)) {
-    if (attr.includes('.')) continue; /* defaults are top-level by design; nested defaults would hide more than they explain */
     const { value: current, unknown } = lookup(resource, attr);
-    if (current === undefined && !unknown) {
-      attrs[attr] = value;
+    if (current !== undefined || unknown) continue;
+    const next = setDefault(attrs, attr.split('.'), value);
+    if (next) {
+      attrs = next;
       defaulted.add(attr);
     }
   }
   return { resource: { ...resource, attrs }, defaulted };
+}
+
+/* Returns a copy of `attrs` with the default in place, or undefined when the
+   path's parent block does not exist: a default for an attribute inside a
+   block the configuration never opened would invent the block too. */
+function setDefault(attrs: Resource['attrs'], segments: string[], value: AttrValue): Resource['attrs'] | undefined {
+  const [head, ...rest] = segments;
+  if (head === undefined) return undefined;
+  if (rest.length === 0) return { ...attrs, [head]: value };
+  const child = attrs[head];
+  if (Array.isArray(child) && child.length === 1 && typeof child[0] === 'object' && child[0] !== null && !Array.isArray(child[0])) {
+    const inner = setDefault(child[0] as Resource['attrs'], rest, value);
+    return inner ? { ...attrs, [head]: [inner] } : undefined;
+  }
+  if (typeof child === 'object' && child !== null && !Array.isArray(child)) {
+    const inner = setDefault(child as Resource['attrs'], rest, value);
+    return inner ? { ...attrs, [head]: inner } : undefined;
+  }
+  return undefined;
 }
 
 function fill(template: string, values: { [k: string]: string }): string {
@@ -37,6 +57,7 @@ function resolveFix(rule: Rule, observed: Finding['observed']): ResolvedFix | un
   if ('value' in fix) {
     const out: ResolvedFix = { kind: 'set-attribute', attr: fix.attr, value: fix.value, safety: fix.safety };
     if (fix.note) out.note = fix.note;
+    if (fix.also_set) out.also_set = fix.also_set;
     return out;
   }
   const table = rule.tables?.[fix.value_from];
@@ -46,8 +67,11 @@ function resolveFix(rule: Rule, observed: Finding['observed']): ResolvedFix | un
     /* No documented mapping from the observed value: say so rather than invent one. */
     return { kind: 'guidance', safety: 'none', note: `No documented mapping from ${fix.attr} = ${String(current)}; choose a target by hand.${fix.note ? ' ' + fix.note : ''}` };
   }
-  const out: ResolvedFix = { kind: 'set-attribute', attr: fix.attr, value: mapped, safety: fix.safety };
-  if (fix.note) out.note = fix.note;
+  const entry = typeof mapped === 'string' ? { value: mapped, safety: fix.safety, note: fix.note } : mapped;
+  const out: ResolvedFix = { kind: 'set-attribute', attr: fix.attr, value: entry.value, safety: entry.safety };
+  const note = [entry.note, typeof mapped === 'string' ? undefined : fix.note].filter(Boolean).join(' ');
+  if (note) out.note = note;
+  if (fix.also_set) out.also_set = fix.also_set;
   return out;
 }
 

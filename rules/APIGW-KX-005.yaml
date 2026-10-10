@@ -1,0 +1,33 @@
+id: APIGW-KX-005
+title: Edge-optimized REST API default endpoint has no post-quantum security policy available
+resource_types: [aws_api_gateway_rest_api]
+category: key-exchange
+severity: low
+applies_when:
+  all:
+    - any:
+        - attr: endpoint_configuration
+          absent: true
+        - attr: endpoint_configuration.types
+          in: [EDGE]
+    - not:
+        attr: disable_execute_api_endpoint
+        eq: true
+pass_when:
+  attr: endpoint_configuration.types
+  in: [REGIONAL, PRIVATE]
+fix:
+  kind: guidance
+  safety: none
+  note: "No PQ policy exists for edge-optimized APIs. Either move the API to REGIONAL (a different endpoint hostname and, for custom domains, a different DNS target), or disable the default execute-api endpoint and serve the API only through a regional custom domain with a PQ policy. Run `edgepq verify` against the endpoint to see what it negotiates today."
+message:
+  fail: "{address} is edge-optimized (the default when endpoint_configuration is not set) and serves its default execute-api endpoint. No post-quantum security policy exists for edge-optimized APIs."
+  pass: "{address} is a regional or private API; see APIGW-KX-003 and APIGW-KX-004."
+  unknown: "{address}: the endpoint type could not be determined offline."
+sources:
+  - url: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies-list.html
+    verified: 2026-10-10
+    quote: "Supported security policies for edge-optimized APIs and custom domain names: SecurityPolicy_TLS13_2025_EDGE, SecurityPolicy_TLS12_PFS_2025_EDGE, SecurityPolicy_TLS12_2018_EDGE, TLS_1_2 (edge-optimized custom domain names only), TLS_1_0."
+  - url: https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/api_gateway_rest_api.html.markdown
+    verified: 2026-10-10
+    quote: "types - (Required) List of endpoint types. Valid values: EDGE, REGIONAL or PRIVATE. If unspecified, defaults to EDGE."

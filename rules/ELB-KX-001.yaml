@@ -1,0 +1,171 @@
+# The policy_map table is generated: test/rules.test.ts checks it against
+# rules/data/elb-security-policies.json. Regenerate the data file with
+# scripts/extract-elb-policies.py, then paste the mapping here.
+id: ELB-KX-001
+title: Load balancer listener does not offer hybrid post-quantum key exchange
+resource_types: [aws_lb_listener, aws_alb_listener]
+category: key-exchange
+severity: high
+applies_when:
+  attr: protocol
+  in: [HTTPS, TLS]
+pass_when:
+  attr: ssl_policy
+  matches: "-PQ-"
+defaults:
+  # What the API uses when a listener is created without a policy by anything
+  # other than the console (Terraform included).
+  ssl_policy: ELBSecurityPolicy-2016-08
+fix:
+  kind: set-attribute
+  attr: ssl_policy
+  value_from: policy_map
+  safety: review
+  note: "Clients that cannot negotiate ML-KEM keep working on these policies; only the key exchange changes for clients that can. Check the connection logs' key exchange field after the change."
+message:
+  fail: "{address} terminates TLS with {ssl_policy}, which negotiates classical key exchange only. Traffic recorded today can be decrypted later by a cryptographically relevant quantum computer (harvest now, decrypt later). A policy with PQ in its name adds X25519MLKEM768, SecP256r1MLKEM768 and SecP384r1MLKEM1024 for clients that offer them."
+  pass: "{address} uses {ssl_policy}, which offers hybrid post-quantum key exchange to clients that support ML-KEM. Whether a given client gets it depends on that client; the listener's connection logs record the key exchange used."
+  unknown: "{address}: ssl_policy is {ssl_policy}, so the policy could not be checked offline. Run the scan on a plan, or on the account, to see the value."
+sources:
+  - url: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    verified: 2026-10-10
+    quote: "Security policies with PQ in their names offer hybrid post-quantum key exchange. For compatibility, they support both classical and post-quantum ML-KEM key exchange algorithms. Clients must support the ML-KEM key exchange to use hybrid post-quantum TLS for key exchange. The hybrid post-quantum policies support SecP256r1MLKEM768, SecP384r1MLKEM1024 and X25519MLKEM768 algorithms."
+  - url: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    verified: 2026-10-10
+    quote: "Other methods (for example, the AWS CLI, AWS CloudFormation, and the AWS CDK) – The default security policy is ELBSecurityPolicy-2016-08."
+  - url: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html
+    verified: 2026-10-10
+    quote: "The hybrid post-quantum policies support SecP256r1MLKEM768, SecP384r1MLKEM1024 and X25519MLKEM768 algorithms."
+  - url: https://aws.amazon.com/about-aws/whats-new/2025/11/network-load-balancers-post-quantum-key-exchange-tls
+    verified: 2026-10-10
+    quote: "AWS Application and Network Load Balancers Now Support Post-Quantum Key Exchange for TLS (21 November 2025)."
+tables:
+  policy_map:
+    ELBSecurityPolicy-2015-05:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-2016-08:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-FS-1-1-2019-08:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: review
+      note: "Nearest post-quantum superset. It also admits TLS1.0, TLS1.3 and 9 more cipher suites than the current policy."
+    ELBSecurityPolicy-FS-1-2-2019-08:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09
+      safety: review
+      note: "Nearest post-quantum superset. It also admits TLS1.3 and 9 more cipher suites than the current policy."
+    ELBSecurityPolicy-FS-1-2-Res-2019-08:
+      value: ELBSecurityPolicy-TLS13-1-2-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-FS-1-2-Res-2020-10:
+      value: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-FS-2018-06:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: review
+      note: "Nearest post-quantum superset. It also admits TLS1.3 and 9 more cipher suites than the current policy."
+    ELBSecurityPolicy-TLS-1-1-2017-01:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: review
+      note: "Nearest post-quantum superset. It also admits TLS1.0, TLS1.3 and 3 more cipher suites than the current policy."
+    ELBSecurityPolicy-TLS-1-2-2017-01:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS-1-2-Ext-2018-06:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-0-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-0-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-0-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-1-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-0-PQ-2025-09
+      safety: review
+      note: "Nearest post-quantum superset. It also admits TLS1.0 and 0 more cipher suites than the current policy."
+    ELBSecurityPolicy-TLS13-1-1-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-0-FIPS-PQ-2025-09
+      safety: review
+      note: "Nearest post-quantum superset. It also admits TLS1.0 and 0 more cipher suites than the current policy."
+    ELBSecurityPolicy-TLS13-1-2-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-2-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-Ext0-RFC9151-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."
+    ELBSecurityPolicy-TLS13-1-2-Ext1-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext1-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext1-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-Ext2-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext2-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-RFC9151-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."
+    ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP1-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."
+    ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP2-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."
+    ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP3-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext0-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."
+    ELBSecurityPolicy-TLS13-1-2-RFC9151-INTEROP4-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-2-Ext2-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."
+    ELBSecurityPolicy-TLS13-1-2-Res-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-2-Res-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-2-Res-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-3-2021-06:
+      value: ELBSecurityPolicy-TLS13-1-3-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-3-FIPS-2023-04:
+      value: ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09
+      safety: auto
+      note: "Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange. No current client loses access."
+    ELBSecurityPolicy-TLS13-1-3-RFC9151-FIPS-2023-07:
+      value: ELBSecurityPolicy-TLS13-1-3-FIPS-PQ-2025-09
+      safety: review
+      note: "RFC 9151 policies also restrict key-exchange curves and signature algorithms to CNSA 1.0; no post-quantum policy keeps that restriction, so this is a change of posture, not only an addition."

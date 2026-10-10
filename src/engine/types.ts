@@ -62,9 +62,14 @@ export type Source = {
 
 export type FixSafety = 'auto' | 'review' | 'none';
 
+export type TableEntry = string | { value: string; safety: FixSafety; note?: string };
+
+/* `also_set` names attributes the fix must add when they are absent, because
+   the target value is invalid without them (an enhanced API Gateway policy
+   needs an endpoint access mode). Existing values are left alone. */
 export type Fix =
-  | { kind: 'set-attribute'; attr: string; value: string; safety: FixSafety; note?: string }
-  | { kind: 'set-attribute'; attr: string; value_from: string; safety: FixSafety; note?: string }
+  | { kind: 'set-attribute'; attr: string; value: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string } }
+  | { kind: 'set-attribute'; attr: string; value_from: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string } }
   | { kind: 'guidance'; note: string; safety: 'none' };
 
 export type Rule = {
@@ -82,8 +87,9 @@ export type Rule = {
   fix?: Fix;
   message: { fail: string; pass: string; unknown: string };
   sources: Source[];
-  /* Mapping tables a fix can refer to by name through `value_from`. */
-  tables?: { [name: string]: { [from: string]: string } };
+  /* Mapping tables a fix can refer to by name through `value_from`. An entry
+     may carry its own safety and note, which override the fix's. */
+  tables?: { [name: string]: { [from: string]: TableEntry } };
 };
 
 /* --------------------------------------------------------------- findings */
@@ -104,5 +110,5 @@ export type Finding = {
 };
 
 export type ResolvedFix =
-  | { kind: 'set-attribute'; attr: string; value: string; safety: FixSafety; note?: string }
+  | { kind: 'set-attribute'; attr: string; value: string; safety: FixSafety; note?: string; also_set?: { [attr: string]: string } }
   | { kind: 'guidance'; note: string; safety: 'none' };
