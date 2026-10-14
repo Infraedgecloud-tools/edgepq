@@ -89,7 +89,7 @@ export function evaluatePair(rule: Rule, original: Resource): Finding | undefine
   }
   if (rule.unknown_when && evalPredicate(rule.unknown_when, resource) !== false) return build(rule, original, resource, defaulted, 'unknown');
   const passes = evalPredicate(rule.pass_when, resource);
-  const status: Status = passes === 'unknown' ? 'unknown' : passes ? 'pass' : rule.fail_as ?? 'fail';
+  const status: Status = passes === 'unknown' ? 'unknown' : passes ? rule.pass_as ?? 'pass' : rule.fail_as ?? 'fail';
   return build(rule, original, resource, defaulted, status);
 }
 
@@ -124,7 +124,7 @@ function build(rule: Rule, original: Resource, resource: Resource, defaulted: Se
   const unresolved = Object.entries(observed).filter(([, o]) => o.unknown).map(([a]) => a);
   const message = status === 'unknown' && unresolved.length
     ? `${original.address}: ${unresolved.join(' and ')} ${unresolved.length === 1 ? 'is' : 'are'} not a literal value here (an expression, a dynamic block, or a value a plan cannot show before apply), so the rule could not be checked offline. The state or the account can show it.`
-    : fill(rule.message[status === 'not_applicable' ? 'pass' : status === 'not_configurable' ? 'fail' : status], templateValues);
+    : fill(rule.message[status === 'not_applicable' || status === 'on_by_default' ? 'pass' : status === 'not_configurable' ? 'fail' : status], templateValues);
   const finding: Finding = {
     id: `${rule.id}:${where}${original.address}`,
     rule: { id: rule.id, title: rule.title, category: rule.category, severity: rule.severity },
@@ -147,7 +147,7 @@ function show(value: AttrValue): string {
 }
 
 export function rank(findings: Finding[]): Finding[] {
-  const statusOrder: Status[] = ['fail', 'not_configurable', 'unknown', 'pass', 'not_applicable'];
+  const statusOrder: Status[] = ['fail', 'not_configurable', 'unknown', 'pass', 'on_by_default', 'not_applicable'];
   return [...findings].sort((a, b) =>
     statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)
     || CATEGORY_ORDER.indexOf(a.rule.category) - CATEGORY_ORDER.indexOf(b.rule.category)

@@ -15,7 +15,7 @@ export function renderJson(report: ScanReport): string {
     generated_at: report.generated_at,
     input: i,
     summary: {
-      by_status: tally<Status>(['fail', 'not_configurable', 'unknown', 'pass', 'not_applicable'], report.findings.map((f) => f.status)),
+      by_status: tally<Status>(['fail', 'not_configurable', 'unknown', 'pass', 'on_by_default', 'not_applicable'], report.findings.map((f) => f.status)),
       /* Failing findings only, so a report full of passes does not look busy. */
       by_category: tally<Category>(CATEGORY_ORDER, fails.map((f) => f.rule.category)),
       by_severity: tally<Severity>(SEVERITY_ORDER, fails.map((f) => f.rule.severity)),

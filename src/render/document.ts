@@ -19,7 +19,7 @@ export type Doc = {
 };
 
 export const GROUPS: { status: Status; label: string }[] = [
-  { status: 'fail', label: 'Failed' }, { status: 'not_configurable', label: 'Not configurable' }, { status: 'unknown', label: 'Could not check' }, { status: 'pass', label: 'Already enabled' },
+  { status: 'fail', label: 'Failed' }, { status: 'not_configurable', label: 'Not configurable' }, { status: 'unknown', label: 'Could not check' }, { status: 'pass', label: 'Already enabled' }, { status: 'on_by_default', label: 'On by default' },
 ];
 const show = (v: unknown): string => (v === undefined ? '(absent)' : typeof v === 'string' ? v : JSON.stringify(v));
 

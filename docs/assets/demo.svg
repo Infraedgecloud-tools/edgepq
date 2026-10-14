@@ -4,7 +4,7 @@
 <circle cx="22" cy="20" r="6" fill="#FF5F57"/><circle cx="42" cy="20" r="6" fill="#FEBC2E"/><circle cx="62" cy="20" r="6" fill="#28C840"/>
 <text x="480" y="24" text-anchor="middle" fill="#8FA6C3" font-size="12">edgepq scan ./terraform</text>
 <text x="22" y="56" xml:space="preserve" fill="#FFFFFF" font-weight="700">edgepq 0.1.0: 13 resource(s), 16 rule(s)</text>
-<text x="22" y="75" xml:space="preserve" fill="#FF7B72">  failed 3   not configurable 0   could not check 4   already enabled 3</text>
+<text x="22" y="75" xml:space="preserve" fill="#FF7B72">  failed 3   not configurable 0   could not check 4   already enabled 3   on by default 0</text>
 <text x="22" y="94" xml:space="preserve" fill="#F5C242">  high     ELB-KX-001    aws_lb_listener.defaulted</text>
 <text x="22" y="113" xml:space="preserve" fill="#E6EDF3">           ssl_policy: ELBSecurityPolicy-2016-08 (default) → ELBSecurityPolicy-TLS13-1-0-PQ-2025-09</text>
 <text x="22" y="132" xml:space="preserve" fill="#F5C242">  high     ELB-KX-001    aws_lb_listener.explicit_classical</text>

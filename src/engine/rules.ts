@@ -138,7 +138,7 @@ export function validateRule(raw: unknown): Rule {
   for (const k of ['fail', 'pass', 'unknown'] as const) {
     if (typeof raw.message[k] !== 'string' || !raw.message[k]) throw new RuleError(id, `message.${k} is required`);
   }
-  const allowed = new Set(['id', 'title', 'resource_types', 'category', 'severity', 'applies_when', 'unknown_when', 'pass_when', 'fail_as', 'defaults', 'fix', 'message', 'sources', 'tables']);
+  const allowed = new Set(['id', 'title', 'resource_types', 'category', 'severity', 'applies_when', 'unknown_when', 'pass_when', 'fail_as', 'pass_as', 'defaults', 'fix', 'message', 'sources', 'tables']);
   for (const k of Object.keys(raw)) if (!allowed.has(k)) throw new RuleError(id, `unknown field '${k}'`);
 
   let tables: Rule['tables'];
@@ -182,6 +182,10 @@ export function validateRule(raw: unknown): Rule {
   if (raw.fail_as !== undefined) {
     if (raw.fail_as !== 'not_configurable') throw new RuleError(id, "fail_as must be 'not_configurable' when present");
     rule.fail_as = 'not_configurable';
+  }
+  if (raw.pass_as !== undefined) {
+    if (raw.pass_as !== 'on_by_default') throw new RuleError(id, "pass_as must be 'on_by_default' when present");
+    rule.pass_as = 'on_by_default';
   }
   if (defaults) rule.defaults = defaults;
   if (tables) rule.tables = tables;
