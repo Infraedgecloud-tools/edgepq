@@ -19,9 +19,11 @@ export type HandshakeResult = {
 };
 
 /* OpenSSL's names for the groups, which are not the IANA spellings. */
-/* Three hybrids and two classical groups: FIPS endpoints offer P-256 but not
-   X25519, so a classical control needs both before a failure means anything. */
-export const HANDSHAKE_GROUPS: readonly string[] = ['X25519MLKEM768', 'SecP256r1MLKEM768', 'SecP384r1MLKEM1024', 'X25519', 'P-256'];
+/* Three hybrids and three classical controls. FIPS endpoints offer P-256 but
+   not X25519, and a server configured for P-384 alone refuses both, so a
+   classical failure means something only when every control the server
+   could accept was tried. */
+export const HANDSHAKE_GROUPS: readonly string[] = ['X25519MLKEM768', 'SecP256r1MLKEM768', 'SecP384r1MLKEM1024', 'X25519', 'P-256', 'P-384'];
 /* Node's SSL error codes carry the alert name after the last slash. */
 const describeCode = (code: string): string => {
   const m = /^ERR_SSL_SSL\/TLS_ALERT_(.+)$/.exec(code);
@@ -30,7 +32,11 @@ const describeCode = (code: string): string => {
   return code;
 };
 
-export const CLASSICAL_GROUPS: readonly string[] = ['X25519', 'P-256'];
+export const CLASSICAL_GROUPS: readonly string[] = ['X25519', 'P-256', 'P-384'];
+
+/* The raw hello reports groups by their IANA names; the handshakes use
+   OpenSSL's. The two are compared through this table. */
+export const IANA_NAME: { readonly [openssl: string]: string } = { X25519: 'x25519', 'P-256': 'secp256r1', 'P-384': 'secp384r1', X25519MLKEM768: 'X25519MLKEM768', SecP256r1MLKEM768: 'SecP256r1MLKEM768', SecP384r1MLKEM1024: 'SecP384r1MLKEM1024' };
 
 export function tryHandshake(host: string, port: number, servername: string, group: string, timeoutMs: number): Promise<HandshakeResult> {
   return new Promise((resolve) => {
