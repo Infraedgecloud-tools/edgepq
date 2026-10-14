@@ -1,4 +1,5 @@
 id: CF-KX-002
+version: 1
 title: CloudFront security policy still admits TLS 1.0 and 1.1 viewers, which never get post-quantum key exchange
 resource_types: [aws_cloudfront_distribution]
 category: inventory

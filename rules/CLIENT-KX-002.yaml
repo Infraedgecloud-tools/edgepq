@@ -1,4 +1,5 @@
 id: CLIENT-KX-002
+version: 1
 title: Lambda function pins a Parameters and Secrets extension version that predates ML-KEM
 resource_types: [aws_lambda_function]
 category: client

@@ -23,7 +23,7 @@ async function assemble(rules: Rule[], input: ScanInput, resources: Resource[]):
     tool: { name: 'edgepq', version: await readToolVersion(join(packageRoot, 'package.json')) },
     generated_at: new Date().toISOString(),
     input,
-    rules: rules.map((r) => ({ id: r.id, title: r.title, category: r.category, severity: r.severity, sources: r.sources })),
+    rules: rules.map((r) => ({ id: r.id, version: r.version, title: r.title, category: r.category, severity: r.severity, sources: r.sources })),
     findings: evaluateAll(rules, resources),
     resources,
     policy_data: await readPolicyData(rulesDir),

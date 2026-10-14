@@ -6,6 +6,7 @@ import type { Resource, Rule } from './types.ts';
 
 const rule: Rule = validateRule({
   id: 'ELB-KX-001',
+  version: 1,
   title: 'Listener offers no hybrid key exchange',
   resource_types: ['aws_lb_listener'],
   category: 'key-exchange',

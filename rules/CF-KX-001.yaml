@@ -1,4 +1,5 @@
 id: CF-KX-001
+version: 1
 title: CloudFront distribution lets viewers connect without TLS
 resource_types: [aws_cloudfront_distribution]
 category: key-exchange

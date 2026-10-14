@@ -232,7 +232,7 @@ export function parseHostPort(target: string): { host: string; port: number } {
 async function rules(io: Io): Promise<number> {
   const all = await loadRules();
   for (const r of all) {
-    io.out(`${r.id}  ${r.severity.padEnd(8)} ${r.category.padEnd(12)} ${r.title}`);
+    io.out(`${r.id}  v${String(r.version).padEnd(3)} ${r.severity.padEnd(8)} ${r.category.padEnd(12)} ${r.title}`);
     for (const s of r.sources) io.out(`    ${s.url} (verified ${s.verified})`);
   }
   return 0;

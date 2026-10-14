@@ -1,4 +1,5 @@
 id: APIGW-KX-006
+version: 1
 title: HTTP or WebSocket API custom domain cannot use a post-quantum security policy
 resource_types: [aws_apigatewayv2_domain_name]
 category: key-exchange

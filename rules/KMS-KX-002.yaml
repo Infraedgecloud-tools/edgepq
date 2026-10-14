@@ -1,4 +1,5 @@
 id: KMS-KX-002
+version: 1
 title: KMS key agreement key derives shared secrets with classical ECDH only
 resource_types: [aws_kms_key]
 category: key-exchange

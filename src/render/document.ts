@@ -15,7 +15,7 @@ export type Doc = {
   title: string; scope: string; intro: string[];
   groups: { label: string; status: Status; findings: FindingView[] }[];
   coverage: { label: string; items: string[] }[];
-  rules: { id: string; title: string; category: string; severity: string; sources: number }[];
+  rules: { id: string; version: number; title: string; category: string; severity: string; sources: number }[];
 };
 
 export const GROUPS: { status: Status; label: string }[] = [
@@ -81,6 +81,6 @@ export function buildDoc(report: ScanReport): Doc {
       })),
     })),
     coverage: [{ label: 'Input', items: [report.input.kind] }, ...inputItems(report.input), { label: 'Not covered', items: [...NOT_COVERED] }],
-    rules: report.rules.map((r) => ({ id: r.id, title: r.title, category: r.category, severity: r.severity, sources: r.sources.length })),
+    rules: report.rules.map((r) => ({ id: r.id, version: r.version, title: r.title, category: r.category, severity: r.severity, sources: r.sources.length })),
   };
 }
