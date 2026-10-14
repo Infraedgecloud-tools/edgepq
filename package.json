@@ -67,11 +67,11 @@
     "yaml": "2.9.1"
   },
   "devDependencies": {
-    "@types/node": "22.19.3",
+    "@types/node": "26.6.5",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "aws-sdk-client-mock": "4.1.0",
     "esbuild": "0.28.2",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   }
 }
