@@ -12,6 +12,7 @@
    ========================================================================= */
 
 import { parseArgs } from 'node:util';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SEVERITY_ORDER, type Severity } from '../engine/types.ts';
 import type { ScanReport } from '../render/types.ts';
@@ -44,11 +45,29 @@ function severityAtOrAbove(report: ScanReport, threshold: Severity): number {
   return report.findings.filter((f) => f.status === 'fail' && SEVERITY_ORDER.indexOf(f.rule.severity) <= limit).length;
 }
 
+/* One line per failed finding, worst first, so the terminal says what failed
+   before the report is opened. The fix is shown when it is a value to set. */
+function failedLines(report: ScanReport, limit = 12): string[] {
+  const failed = report.findings
+    .filter((f) => f.status === 'fail')
+    .sort((a, b) => SEVERITY_ORDER.indexOf(a.rule.severity) - SEVERITY_ORDER.indexOf(b.rule.severity) || a.resource.address.localeCompare(b.resource.address));
+  const lines = failed.slice(0, limit).flatMap((f) => {
+    const head = `  ${f.rule.severity.padEnd(8)} ${f.rule.id.padEnd(13)} ${f.resource.address}`;
+    if (f.fix?.kind !== 'set-attribute') return [head, `           ${f.fix ? 'fix: see the report' : 'no fix is offered; see the report'}`];
+    const observed = f.observed[f.fix.attr];
+    const current = observed?.value === undefined ? 'unset' : `${String(observed.value)}${observed.defaulted ? ' (default)' : ''}`;
+    return [head, `           ${f.fix.attr}: ${current} → ${f.fix.value}`];
+  });
+  if (failed.length > limit) lines.push(`  ... and ${failed.length - limit} more; see the report`);
+  return lines;
+}
+
 function summary(report: ScanReport, written: Written, outDir: string): string {
   const count = (status: string) => report.findings.filter((f) => f.status === status).length;
   const lines = [
     `edgepq ${report.tool.version}: ${report.resources.length} resource(s), ${report.rules.length} rule(s)`,
     `  failed ${count('fail')}   not configurable ${count('not_configurable')}   could not check ${count('unknown')}   already enabled ${count('pass')}`,
+    ...failedLines(report),
   ];
   if (report.input.kind === 'hcl') {
     const notes = report.input.notes;
@@ -109,6 +128,7 @@ async function scan(args: string[], io: Io): Promise<number> {
   if (!target) throw new UsageError('scan needs a Terraform directory or a terraform show -json file');
   const threshold = parseThreshold(values['fail-on']);
   const outDir = values.out ?? 'edgepq-out';
+  await stat(target).catch(() => { throw new UsageError(`${target}: no such file or directory`); });
   const { report, input } = await reportForTerraform(target, await loadRules());
   const written = await writeOutputs(report, outDir, { target, input });
   io.out(summary(report, written, outDir));
