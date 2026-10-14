@@ -1,25 +1,55 @@
 {
-  "name": "edgepq",
+  "name": "@infraedgecloud/edgepq",
   "version": "0.1.0",
-  "description": "Post-quantum readiness checks for AWS estates: Terraform scanner, AWS scanner, verify probe, CBOM and patches.",
-  "license": "UNLICENSED",
-  "private": true,
+  "description": "Post-quantum readiness for AWS: scans Terraform and live accounts for classical key exchange and signatures, verifies endpoints, writes a CBOM and patches.",
+  "license": "Apache-2.0",
+  "author": "InfraEdge (https://infraedge.org)",
+  "homepage": "https://github.com/infraedgecloud-tools/edgepq#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infraedgecloud-tools/edgepq.git"
+  },
+  "bugs": {
+    "url": "https://github.com/infraedgecloud-tools/edgepq/issues"
+  },
+  "keywords": [
+    "post-quantum",
+    "pqc",
+    "ml-kem",
+    "tls",
+    "aws",
+    "terraform",
+    "cbom",
+    "cyclonedx",
+    "security",
+    "cli"
+  ],
   "type": "module",
   "engines": {
-    "node": ">=22.18"
+    "node": ">=20.10"
   },
   "bin": {
     "edgepq": "bin/edgepq.js"
   },
+  "files": [
+    "bin/",
+    "dist/",
+    "rules/",
+    "schema/",
+    "terraform/",
+    "CHANGELOG.md",
+    "NOTICE"
+  ],
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && npm run build:web",
+    "build:web": "node --experimental-strip-types scripts/build-web.ts",
+    "demo": "node --experimental-strip-types scripts/render-demo.ts",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts' 'test/**/*.test.ts'",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
-    "build:web": "node --experimental-strip-types scripts/build-web.ts"
+    "prepack": "npm run build"
   },
   "dependencies": {
-    "@cdktf/hcl2json": "^0.21.0",
-    "yaml": "2.8.1",
     "@aws-sdk/client-acm": "3.1149.0",
     "@aws-sdk/client-acm-pca": "3.1149.0",
     "@aws-sdk/client-api-gateway": "3.1149.0",
@@ -32,14 +62,16 @@
     "@aws-sdk/client-lambda": "3.1149.0",
     "@aws-sdk/client-organizations": "3.1149.0",
     "@aws-sdk/client-sts": "3.1149.0",
-    "@aws-sdk/credential-providers": "3.1149.0"
+    "@aws-sdk/credential-providers": "3.1149.0",
+    "@cdktf/hcl2json": "^0.21.0",
+    "yaml": "2.8.1"
   },
   "devDependencies": {
     "@types/node": "22.19.3",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "typescript": "5.9.3",
     "aws-sdk-client-mock": "4.1.0",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
   }
 }

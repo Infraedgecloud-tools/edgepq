@@ -16,7 +16,7 @@ Describe or Get, named one by one. No wildcard actions.
 
 ```hcl
 module "edgepq_role" {
-  source                = "github.com/karshee/Infraedge//edgepq/terraform/edgepq-readonly-role"
+  source                = "github.com/infraedgecloud-tools/edgepq//terraform/edgepq-readonly-role?ref=v0.1.0"
   trusted_principal_arn = "arn:aws:iam::111111111111:role/ci-scanner"
   external_id           = "a-long-random-string"
 }

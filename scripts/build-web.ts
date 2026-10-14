@@ -1,9 +1,10 @@
 /* ============================================================================
-   Build the browser bundle for EdgePQ Check and put it where the website
-   serves it. Deterministic: the same sources and the same esbuild give the
-   same bytes, which CI relies on (`npm run build:web && git diff --quiet`).
+   Build the browser bundle: the engine, the rules and the renderers as one
+   IIFE for a page to load, with no network after the parser has loaded.
+   Deterministic: the same sources and the same esbuild give the same bytes,
+   which the tests and the website that embeds it rely on.
 
-     node --experimental-strip-types scripts/build-web.ts [outDir]
+     node --experimental-strip-types scripts/build-web.ts [outDir]   (default dist/web)
 
    Writes:
      <outDir>/edgepq.js            the engine, rules, renderers and the Go runtime shim
@@ -20,7 +21,7 @@ import { parse } from 'yaml';
 import { validateRules } from '../src/engine/rules.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const outDir = resolve(process.argv[2] ?? join(root, '..', 'infraedge-website', 'js'));
+const outDir = resolve(process.argv[2] ?? join(root, 'dist', 'web'));
 const require = createRequire(import.meta.url);
 const hcl2jsonDir = join(require.resolve('@cdktf/hcl2json/package.json'), '..');
 const hcl2jsonVersion = (JSON.parse(await readFile(join(hcl2jsonDir, 'package.json'), 'utf8')) as { version: string }).version;
@@ -39,8 +40,8 @@ const virtual: { [name: string]: string } = {
   'edgepq:rules': `export default ${JSON.stringify(rules)};`,
   'edgepq:policy-data': `export default ${JSON.stringify(policyData)};`,
   'edgepq:version': `export default ${JSON.stringify(version)};`,
-  /* The wasm carries the parser version in its name: the site caches every
-     asset as immutable for a year, so a new parser must be a new file. */
+  /* The wasm carries the parser version in its name: a site that caches its
+     assets as immutable can then ship a new parser as a new file. */
   'edgepq:wasm-url': `export default ${JSON.stringify(`/js/hcl2json-${hcl2jsonVersion}.wasm`)};`,
 };
 
@@ -59,7 +60,7 @@ const result = await build({
   banner: {
     js: [
       `/* EdgePQ Check ${version} — runs entirely in this browser; nothing is uploaded.`,
-      ` * Engine and rules: https://github.com/karshee/Infraedge/tree/main/edgepq`,
+      ` * Engine and rules: https://github.com/infraedgecloud-tools/edgepq (Apache-2.0)`,
       ` * HCL parser: @cdktf/hcl2json ${hcl2jsonVersion} (HashiCorp, MPL-2.0, https://github.com/hashicorp/terraform-cdk/tree/main/packages/@cdktf/hcl2json),`,
       ` *   loaded from hcl2json-${hcl2jsonVersion}.wasm beside this file; its Go runtime shim wasm_exec.js (BSD-3-Clause, Go Authors) is bundled below. */`,
     ].join('\n'),

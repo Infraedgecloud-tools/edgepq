@@ -34,7 +34,7 @@ test('scan a Terraform directory: all four outputs plus patches, exit 0, exit 1 
   assert.ok(patches.includes('edgepq-auto.patch') && patches.includes('edgepq-all.patch'), patches.join(','));
 
   const findings = JSON.parse(await readFile(join(out, 'edgepq-findings.json'), 'utf8')) as { input: { kind: string } };
-  const schema = JSON.parse(await readFile(join(root, 'src/render/findings.schema.json'), 'utf8'));
+  const schema = JSON.parse(await readFile(join(root, 'schema/findings.schema.json'), 'utf8'));
   const ajv = new Ajv2020({ strict: false, allErrors: true });
   addFormats.default(ajv);
   assert.ok(ajv.validate(schema, findings), JSON.stringify(ajv.errors?.slice(0, 3)));
