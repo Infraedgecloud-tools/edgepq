@@ -63,7 +63,7 @@ function exchange(host: string, port: number, hello: Buffer, timeoutMs: number):
     };
     socket.setTimeout(timeoutMs, () => finish({ outcome: 'timeout', error: `no ServerHello within ${timeoutMs} ms` }));
     socket.once('connect', () => { connected = true; socket.write(hello); });
-    socket.on('data', (chunk) => {
+    socket.on('data', (chunk: Buffer) => {
       received = Buffer.concat([received, chunk]);
       const parsed = parseServerFlight(received);
       if (parsed.state === 'complete') finish(describe(parsed.flight));
