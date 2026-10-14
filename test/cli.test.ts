@@ -22,7 +22,7 @@ function run(args: string[], cwd = root): Promise<{ code: number | null; stdout:
   });
 }
 
-test('scan a Terraform directory: all four outputs plus patches, exit 0, exit 1 with --fail-on', async () => {
+test('scan a Terraform directory: all five outputs plus patches, exit 0, exit 1 with --fail-on', async () => {
   const out = await mkdtemp(join(tmpdir(), 'edgepq-'));
   const r = await run(['scan', 'test/fixtures/rules/ELB-KX-001', '--out', out]);
   assert.equal(r.code, 0, r.stderr);
@@ -30,7 +30,14 @@ test('scan a Terraform directory: all four outputs plus patches, exit 0, exit 1 
   assert.match(r.stdout, /high\s+ELB-KX-001\s+aws_lb_listener\.defaulted\n\s+ssl_policy: ELBSecurityPolicy-2016-08 \(default\) → ELBSecurityPolicy-TLS13-1-0-PQ-2025-09/);
   assert.match(r.stdout, /patches: 3 written, never applied/);
   const names = (await readdir(out)).sort();
-  assert.deepEqual(names, ['edgepq-cbom.cdx.json', 'edgepq-findings.json', 'edgepq-report.html', 'edgepq-report.md', 'patches']);
+  assert.deepEqual(names, ['edgepq-cbom.cdx.json', 'edgepq-findings.json', 'edgepq-findings.sarif', 'edgepq-report.html', 'edgepq-report.md', 'patches']);
+  /* SARIF paths are relative to the working directory and point at the resource block. */
+  const sarif = JSON.parse(await readFile(join(out, 'edgepq-findings.sarif'), 'utf8')) as { runs: { results: { ruleId: string; locations: { physicalLocation: { artifactLocation: { uri: string }; region?: { startLine: number } } }[]; properties: { address: string } }[] }[] };
+  const defaulted = sarif.runs[0]!.results.find((r) => r.properties.address === 'aws_lb_listener.defaulted')!;
+  assert.equal(defaulted.locations[0]!.physicalLocation.artifactLocation.uri, 'test/fixtures/rules/ELB-KX-001/fail.tf');
+  const fixture = await readFile(join(root, 'test/fixtures/rules/ELB-KX-001/fail.tf'), 'utf8');
+  const expectedLine = fixture.slice(0, fixture.indexOf('resource "aws_lb_listener" "defaulted"')).split('\n').length;
+  assert.equal(defaulted.locations[0]!.physicalLocation.region?.startLine, expectedLine);
   const patches = (await readdir(join(out, 'patches'))).sort();
   assert.ok(patches.includes('edgepq-auto.patch') && patches.includes('edgepq-all.patch'), patches.join(','));
 

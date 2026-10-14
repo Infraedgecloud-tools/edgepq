@@ -32,6 +32,7 @@ Needs Node 20.10 or later. The summary prints to the terminal and the files land
 ```
 edgepq-out/
   edgepq-findings.json     every finding, with observed values, the fix and dated sources
+  edgepq-findings.sarif    the failures and could-not-checks, for GitHub code scanning
   edgepq-report.md         the same, readable
   edgepq-report.html       the same, self-contained, no external requests
   edgepq-cbom.cdx.json     CycloneDX 1.6 cryptographic bill of materials
@@ -64,8 +65,8 @@ The npm package is published with provenance from the same workflow.
 
 | Command | Input | Output |
 |---|---|---|
-| `edgepq scan <dir>` | Terraform HCL | findings, report, CBOM, patches |
-| `edgepq scan <plan.json>` | `terraform show -json` plan or state | findings, report, CBOM |
+| `edgepq scan <dir>` | Terraform HCL | findings, SARIF, report, CBOM, patches |
+| `edgepq scan <plan.json>` | `terraform show -json` plan or state | findings, SARIF, report, CBOM |
 | `edgepq aws` | read-only API calls across accounts and regions | findings, report, CBOM, evidence |
 | `edgepq verify <host>` | a few TLS connections | the key exchange the endpoint selects, and whether a hybrid handshake completes |
 
@@ -93,6 +94,22 @@ is *could not check*, never a pass and never a fail. The report lists every such
 edgepq scan ./terraform --fail-on high        # exit 1 if a high or critical finding failed
 terraform show -json tfplan > plan.json && edgepq scan plan.json
 ```
+
+In GitHub Actions, the SARIF file turns the failures into code scanning alerts on the
+resource block, keyed on a fingerprint that survives a file move:
+
+```yaml
+- run: npx @infraedgecloud/edgepq scan ./terraform --out edgepq-out
+  continue-on-error: true
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: edgepq-out/edgepq-findings.sarif
+```
+
+Every finding in the JSON carries `fingerprint` (rule, resource type and address, hashed)
+beside its `id` (rule, file and address): key a suppression or a ticket on the
+fingerprint. Each rule carries a `version` that moves when its logic changes, and a
+finding records the version that produced it.
 
 ### Scanning an account
 
