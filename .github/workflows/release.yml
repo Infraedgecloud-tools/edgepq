@@ -1,0 +1,50 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run check
+      - name: The tag is the package version
+        run: |
+          v="$(node -p "require('./package.json').version")"
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::package.json says $v, tag is $GITHUB_REF_NAME"; exit 1; }
+      - name: Pack
+        run: |
+          mkdir -p release && npm pack --pack-destination release
+          (cd release && sha256sum *.tgz > SHA256SUMS)
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/*.tgz
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$(awk -v tag="${GITHUB_REF_NAME#v}" '/^## \[/{p = index($0, "[" tag "]") > 0} p' CHANGELOG.md)"
+          gh release create "$GITHUB_REF_NAME" release/*.tgz release/SHA256SUMS \
+            --title "$GITHUB_REF_NAME" --notes "${notes:-See CHANGELOG.md.}"
+      # The registry publish needs a token with publish rights on the
+      # @infraedgecloud scope. Without one the release still happens on
+      # GitHub, and the tarball above installs with npm directly.
+      - name: npm publish
+        if: env.NODE_AUTH_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish release/*.tgz --provenance --access public

@@ -1,0 +1,44 @@
+name: Wrong finding
+description: A rule failed a resource that is post-quantum ready, or passed one that is not
+labels: [wrong-finding]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A rule's verdict rests on the AWS documentation its `sources[]` cite. If the documentation changed, link the page; if the rule misread a configuration, a fixture that reproduces it makes the fix quick.
+        Redact resource names, ARNs and account IDs before attaching anything.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `edgepq --version`
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id and resource type
+      placeholder: ELB-KX-001, aws_lb_listener
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why the finding is wrong
+      description: Link the AWS documentation that says so.
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Redacted Terraform or plan excerpt
+      render: hcl
+    validations:
+      required: true
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Confirmation
+      options:
+      - label: I have removed real identifiers from anything I am attaching.
+        required: true
