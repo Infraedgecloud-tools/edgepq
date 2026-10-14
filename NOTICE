@@ -1,0 +1,9 @@
+EdgePQ
+Copyright 2026 InfraEdge
+
+This product includes software developed at InfraEdge (https://infraedge.org).
+
+The browser bundle (dist/web/edgepq.js) embeds wasm_exec.js, the Go runtime
+shim, Copyright 2018 The Go Authors, BSD-3-Clause, and loads HashiCorp's HCL
+parser compiled to WebAssembly from @cdktf/hcl2json, MPL-2.0, as a separate
+file beside it. Neither is modified.
