@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The suite runs the TypeScript sources directly on the Node that strips
+  # types natively; the lockfile pins everything else.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: The package builds and contains what it should
+        run: |
+          npm pack --dry-run 2>&1 | tee pack.txt
+          for f in bin/edgepq.js dist/cli/main.js dist/web/edgepq.js rules/ELB-KX-001.yaml schema/findings.schema.json LICENSE NOTICE; do
+            grep -q "$f" pack.txt || { echo "::error::$f is missing from the package"; exit 1; }
+          done
+          ! grep -qE 'src/|test/|\.test\.' pack.txt || { echo "::error::sources or tests leaked into the package"; exit 1; }
+
+  # What a user gets: the compiled package, installed from the tarball, on
+  # the oldest supported Node and the newest. verify needs 22.20 for the
+  # hybrid handshakes; on 20 it reports them as not testable, which is the
+  # behaviour the test checks for.
+  package:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '24']
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: mkdir -p /tmp/pack && npm pack --pack-destination /tmp/pack
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install the tarball and run the fixtures
+        run: |
+          mkdir /tmp/user && cd /tmp/user && npm init -y >/dev/null
+          npm install --no-audit --no-fund /tmp/pack/*.tgz
+          npx edgepq --version
+          npx edgepq scan "$GITHUB_WORKSPACE/test/fixtures/rules/ELB-KX-001" --out out | tee scan.txt
+          grep -q 'failed 3' scan.txt
+          test -s out/edgepq-findings.json && test -s out/edgepq-cbom.cdx.json
+          set +e
+          npx edgepq scan "$GITHUB_WORKSPACE/test/fixtures/rules/ELB-KX-001" --out out2 --fail-on high; echo "fail-on exit $?" | tee -a scan.txt
+          mkdir empty && npx edgepq scan empty; echo "empty exit $?" | tee -a scan.txt
+          set -e
+          grep -q 'fail-on exit 1' scan.txt && grep -q 'empty exit 2' scan.txt

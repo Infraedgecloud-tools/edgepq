@@ -1,0 +1,40 @@
+name: Bug report
+description: edgepq crashed, gave a wrong exit code, or printed something it should not
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports and evidence files carry resource names, ARNs and account IDs. Redact them before attaching anything.
+        If edgepq called something post-quantum ready that is not, do not file it here. Follow SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `edgepq --version`, and `node -v`
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Redacted Terraform, plan excerpt or minimal fixture
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Confirmation
+      options:
+      - label: I have removed real identifiers from anything I am attaching.
+        required: true

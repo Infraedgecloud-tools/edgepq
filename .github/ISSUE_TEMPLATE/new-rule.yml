@@ -1,0 +1,28 @@
+name: New rule
+description: Ask for, or propose, a check on an AWS service or resource type
+labels: [rule]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A rule is one YAML file under rules/ with a failing and a passing fixture. See rules/README.md and CONTRIBUTING.md.
+  - type: input
+    id: resource
+    attributes:
+      label: Service and resource type
+      placeholder: aws_msk_cluster
+    validations:
+      required: true
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: What the attribute controls and what AWS documents about post-quantum support for it
+      description: Link the AWS documentation for each claim.
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Fixture idea
+      description: A failing and a passing configuration, if you have them.
+      render: hcl
