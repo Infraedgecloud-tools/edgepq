@@ -8,7 +8,7 @@ import { renderJson } from './json.ts';
 import { NOT_COVERED } from './not-covered.ts';
 
 const parse = (s: string): any => JSON.parse(s);
-const schema = JSON.parse(await readFile(new URL('./findings.schema.json', import.meta.url), 'utf8'));
+const schema = JSON.parse(await readFile(new URL('../../schema/findings.schema.json', import.meta.url), 'utf8'));
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 addFormats.default(ajv);
 const compiled = ajv.compile(schema);

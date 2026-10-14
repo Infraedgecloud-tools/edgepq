@@ -1,8 +1,8 @@
 /* ============================================================================
-   The committed browser bundle is the engine: same bytes as a fresh build,
-   and the same findings as the Node pipeline on the same input. Runs the
-   IIFE under Node with a fetch shim for the wasm, so no browser is needed
-   for parity; the website's Playwright test covers the page itself.
+   The browser bundle is the engine: a build is reproducible byte for byte,
+   and it gives the same findings as the Node pipeline on the same input.
+   Runs the IIFE under Node with a fetch shim for the wasm, so no browser is
+   needed for parity; the website that embeds the bundle tests the page.
    ========================================================================= */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,19 +18,25 @@ import { scanHclFiles } from '../src/adapters/hcl.ts';
 import { evaluateAll } from '../src/engine/evaluate.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const siteJs = join(root, '..', 'infraedge-website', 'js');
 
-test('a fresh build reproduces the committed bundle byte for byte', async () => {
-  const out = await mkdtemp(join(tmpdir(), 'edgepq-web-'));
-  execFileSync(process.execPath, ['--experimental-strip-types', join(root, 'scripts/build-web.ts'), out], { stdio: 'pipe' });
-  const built = await readFile(join(out, 'edgepq.js'), 'utf8');
-  const committed = await readFile(join(siteJs, 'edgepq.js'), 'utf8');
-  assert.equal(built, committed, 'run `npm run build:web` and commit the result');
-  const wasm = (await readdir(out)).find((n) => n.endsWith('.wasm'))!;
-  assert.deepEqual(await readFile(join(out, wasm)), await readFile(join(siteJs, wasm)));
+async function buildInto(dir: string): Promise<void> {
+  execFileSync(process.execPath, ['--experimental-strip-types', join(root, 'scripts/build-web.ts'), dir], { stdio: 'pipe' });
+}
+
+test('two builds give the same bytes', async () => {
+  const a = await mkdtemp(join(tmpdir(), 'edgepq-web-'));
+  const b = await mkdtemp(join(tmpdir(), 'edgepq-web-'));
+  await buildInto(a);
+  await buildInto(b);
+  assert.equal(await readFile(join(a, 'edgepq.js'), 'utf8'), await readFile(join(b, 'edgepq.js'), 'utf8'));
+  const wasm = (await readdir(a)).find((n) => n.endsWith('.wasm'))!;
+  assert.deepEqual(await readFile(join(a, wasm)), await readFile(join(b, wasm)));
+  assert.match(await readFile(join(a, 'edgepq.js'), 'utf8'), /^\/\* EdgePQ Check \d+\.\d+\.\d+ /);
 });
 
 test('the bundle evaluates the fixtures exactly as the Node pipeline does', async () => {
+  const siteJs = await mkdtemp(join(tmpdir(), 'edgepq-web-'));
+  await buildInto(siteJs);
   const wasmName = (await readdir(siteJs)).find((n) => /^hcl2json-.*\.wasm$/.test(n))!;
   const wasmBytes = await readFile(join(siteJs, wasmName));
   const realFetch = globalThis.fetch;
