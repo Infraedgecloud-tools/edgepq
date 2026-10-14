@@ -71,6 +71,17 @@ test('usage errors exit 2 and say why', async () => {
   const notJson = await run(['scan', 'package.json', '--out', await mkdtemp(join(tmpdir(), 'edgepq-'))]);
   assert.equal(notJson.code, 2);
   assert.match(notJson.stderr, /neither a Terraform plan nor a state/);
+  /* Node's own parseArgs text is not shown; the option is named. */
+  const unknown = await run(['scan', 'test/fixtures/rules/ELB-KX-001', '--outdir', 'x']);
+  assert.equal(unknown.code, 2);
+  assert.match(unknown.stderr, /^edgepq: unknown option --outdir/m);
+  assert.doesNotMatch(unknown.stderr, /positional argument/);
+  const missing = await run(['scan', 'test/fixtures/rules/ELB-KX-001', '--out']);
+  assert.equal(missing.code, 2);
+  assert.match(missing.stderr, /^edgepq: --out needs a value/m);
+  const extra = await run(['aws', 'something']);
+  assert.equal(extra.code, 2);
+  assert.match(extra.stderr, /^edgepq: unexpected argument something/m);
 });
 
 test('a file that does not parse makes the scan exit 2 and name the file', async () => {

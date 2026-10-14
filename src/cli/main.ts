@@ -11,7 +11,7 @@
    error. Nothing here applies a change anywhere.
    ========================================================================= */
 
-import { parseArgs } from 'node:util';
+import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SEVERITY_ORDER, type Severity } from '../engine/types.ts';
@@ -39,6 +39,26 @@ supports a hybrid group, 1 when it is classical or TLS 1.2 only, 2 when the
 answer is inconclusive or the host could not be reached.`;
 
 class UsageError extends Error {}
+
+/* Node's parseArgs messages are written for the person who wrote the options
+   table, not the one typing the command ("To specify a positional argument
+   starting with a '-', place it at the end of the command after '--'"). The
+   option that went wrong is enough. */
+function options<const T extends ParseArgsConfig>(config: T): ReturnType<typeof parseArgs<T>> {
+  try {
+    return parseArgs(config);
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    const name = /'([^' ]+)[^']*'/.exec(err.message)?.[1];
+    switch (err.code) {
+      case 'ERR_PARSE_ARGS_UNKNOWN_OPTION': throw new UsageError(`unknown option ${name ?? ''}`.trim());
+      case 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE':
+        throw new UsageError(name ? (/does not take an argument/.test(err.message) ? `${name} takes no value` : `${name} needs a value`) : err.message);
+      case 'ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL': throw new UsageError(`unexpected argument ${name ?? ''}`.trim());
+      default: throw e;
+    }
+  }
+}
 
 function severityAtOrAbove(report: ScanReport, threshold: Severity): number {
   const limit = SEVERITY_ORDER.indexOf(threshold);
@@ -123,7 +143,7 @@ async function loadRulesAndVersion() {
 }
 
 async function scan(args: string[], io: Io): Promise<number> {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { out: { type: 'string' }, 'fail-on': { type: 'string' } } });
+  const { values, positionals } = options({ args, allowPositionals: true, options: { out: { type: 'string' }, 'fail-on': { type: 'string' } } });
   const target = positionals[0];
   if (!target) throw new UsageError('scan needs a Terraform directory or a terraform show -json file');
   const threshold = parseThreshold(values['fail-on']);
@@ -149,7 +169,7 @@ async function scan(args: string[], io: Io): Promise<number> {
 }
 
 async function aws(args: string[], io: Io): Promise<number> {
-  const { values } = parseArgs({ args, options: {
+  const { values } = options({ args, options: {
     accounts: { type: 'string' }, org: { type: 'boolean' }, regions: { type: 'string' }, 'role-name': { type: 'string' },
     'external-id': { type: 'string' }, 'cloudtrail-sample': { type: 'string' }, out: { type: 'string' }, 'fail-on': { type: 'string' }, quiet: { type: 'boolean' },
   } });
@@ -172,7 +192,7 @@ async function aws(args: string[], io: Io): Promise<number> {
 }
 
 async function verify(args: string[], io: Io): Promise<number> {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { servername: { type: 'string' }, json: { type: 'boolean' }, timeout: { type: 'string' } } });
+  const { values, positionals } = options({ args, allowPositionals: true, options: { servername: { type: 'string' }, json: { type: 'boolean' }, timeout: { type: 'string' } } });
   const target = positionals[0];
   if (!target) throw new UsageError('verify needs a host or host:port');
   const { host, port } = parseHostPort(target);
