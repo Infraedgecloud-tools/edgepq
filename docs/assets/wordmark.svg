@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" width="420" height="96" role="img" aria-label="EdgePQ">
+  <rect width="96" height="96" rx="21" fill="#0B2545"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M31.5 42V31.5a16.5 16.5 0 0 1 33 0V42"/>
+    <rect x="22.5" y="42" width="51" height="37.5" rx="7.5"/>
+  </g>
+  <g fill="#F5C242">
+    <circle cx="37.5" cy="53.25" r="3.4"/><circle cx="48" cy="53.25" r="3.4"/><circle cx="58.5" cy="53.25" r="3.4"/>
+    <circle cx="37.5" cy="68.25" r="3.4"/><circle cx="48" cy="68.25" r="3.4"/><circle cx="58.5" cy="68.25" r="3.4"/>
+  </g>
+  <text x="118" y="64" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="54" font-weight="700" letter-spacing="-1.5" fill="#0B2545">Edge<tspan fill="#1A63B0">PQ</tspan></text>
+</svg>

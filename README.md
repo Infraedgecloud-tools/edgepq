@@ -1,33 +1,33 @@
-# EdgePQ
+<p align="center"><img src="docs/assets/wordmark.svg" width="420" alt="EdgePQ"></p>
 
-Post-quantum readiness checks for AWS estates. One rules engine, four
-surfaces:
+<p align="center">
+  <a href="https://github.com/infraedgecloud-tools/edgepq/releases/latest"><img src="https://img.shields.io/github/v/release/infraedgecloud-tools/edgepq?display_name=tag&color=0B2545" alt="Release"></a>
+  <a href="https://github.com/infraedgecloud-tools/edgepq/actions/workflows/ci.yml"><img src="https://github.com/infraedgecloud-tools/edgepq/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@infraedgecloud/edgepq"><img src="https://img.shields.io/npm/v/@infraedgecloud/edgepq?color=1A63B0&label=npm" alt="npm"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-Apache--2.0-1A63B0" alt="Apache-2.0"></a>
+</p>
 
-| Command | Input | Output |
-|---|---|---|
-| `edgepq scan <dir>` | Terraform HCL | findings (JSON), report (Markdown + HTML), CBOM (CycloneDX 1.6), patches |
-| `edgepq scan <plan.json>` | `terraform show -json` plan or state | findings, report, CBOM |
-| `edgepq aws` | read-only API calls across accounts and regions | findings, report, CBOM, evidence |
-| `edgepq verify <host>` | a few TLS connections | the key exchange the endpoint actually selects, and whether it completes a hybrid handshake |
+**EdgePQ says which of your AWS endpoints and keys still rely on classical cryptography,
+and what to change.** It reads your Terraform or your account, names the load balancer
+listeners, API Gateway domains, CloudFront distributions and KMS keys that negotiate a
+key exchange a quantum computer could later break, and gives the one-line fix for each,
+with the AWS documentation it rests on.
 
-The reports say what is enabled, what is not, what could not be checked, and
-what the tool does not look at. Nothing is ever called safe or compliant.
-Nothing is ever applied: patches are unified diffs for a person to review.
+Traffic recorded today can be decrypted later ("harvest now, decrypt later"). AWS has
+shipped hybrid post-quantum key exchange (ML-KEM) on most of its TLS front doors as a
+policy setting. Whether it is on is a configuration question, and that is what EdgePQ
+answers. Nothing is ever called safe or compliant, and nothing is ever applied.
 
-## Run it in five minutes
+<p align="center"><img src="docs/assets/demo.svg" width="960" alt="edgepq scan on a Terraform directory: three listeners on classical policies, the policy to set for each, four values that could not be checked offline, three already enabled"></p>
 
-Needs Node 22.18 or later (`node -v`); `verify` needs 22.20 or later, which
-bundles the OpenSSL that can negotiate the hybrid groups.
-
-The repository is private while publishing is decided, so you will have
-received the `edgepq/` directory itself. From inside it:
+## Try it in a minute
 
 ```bash
-npm ci
-node bin/edgepq.js scan path/to/your/terraform
+npx @infraedgecloud/edgepq scan ./terraform
 ```
 
-The summary prints to the terminal and the files land in `./edgepq-out/`:
+Needs Node 20.10 or later. The summary prints to the terminal and the files land in
+`./edgepq-out/`:
 
 ```
 edgepq-out/
@@ -38,9 +38,44 @@ edgepq-out/
   patches/                 one unified diff per fix, plus edgepq-auto.patch and edgepq-all.patch
 ```
 
-`--fail-on high` makes the exit code 1 when a failed finding is high or
-critical, for CI. `--out DIR` changes the output directory. A scan that finds no
-resources at all exits 2: a gate pointed at the wrong directory must not pass.
+No account, no upload, no telemetry: `scan` reads files and writes files. The same
+scanner runs in a browser as [EdgePQ Check](https://infraedge.org/tools/edgepq-check),
+for a paste-and-see answer.
+
+## Install
+
+| | |
+|---|---|
+| npm | `npm install -g @infraedgecloud/edgepq` |
+| One-off | `npx @infraedgecloud/edgepq scan ./terraform` |
+| Release tarball | `npm install -g https://github.com/infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz` |
+| From source | `git clone https://github.com/infraedgecloud-tools/edgepq && cd edgepq && npm ci && node bin/edgepq.js` (Node 22.18 or later runs the TypeScript directly) |
+
+Every release attaches the tarball, its SHA-256 and a
+[build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations):
+
+```bash
+gh attestation verify infraedgecloud-edgepq-0.1.0.tgz --owner infraedgecloud-tools
+```
+
+The npm package is published with provenance from the same workflow.
+
+## Four surfaces, one engine
+
+| Command | Input | Output |
+|---|---|---|
+| `edgepq scan <dir>` | Terraform HCL | findings, report, CBOM, patches |
+| `edgepq scan <plan.json>` | `terraform show -json` plan or state | findings, report, CBOM |
+| `edgepq aws` | read-only API calls across accounts and regions | findings, report, CBOM, evidence |
+| `edgepq verify <host>` | a few TLS connections | the key exchange the endpoint selects, and whether a hybrid handshake completes |
+
+Exit codes: `scan` and `aws` exit 0, 1 when `--fail-on SEV` is reached by a failed
+finding, 2 on bad input or when nothing was found to check. A gate pointed at the wrong
+directory must not pass. `verify` exits 0 when the endpoint selects or supports a
+hybrid group, 1 when it is classical or TLS 1.2 only, 2 when the answer is inconclusive
+or the host could not be reached.
+
+### Scanning Terraform
 
 A directory is read the way Terraform reads it. The `*.tf` files in it are the root
 module; each `module` block with a local source (`./modules/alb`) is read under
@@ -51,81 +86,83 @@ own, with its path as the address prefix (`modules/alb:aws_lb_listener.https`), 
 repository of modules can be scanned too. Modules from a registry or a remote source
 are not read; the report says so.
 
-`edgepq verify host` opens a handful of connections: two hand-built ClientHellos to
-read what the server selects, and one real handshake per group through Node's TLS
-stack. It exits 0 when the endpoint selects or supports a hybrid group, 1 when it is
-classical or TLS 1.2 only, and 2 when the answer is inconclusive or the host could not
-be reached, so it can gate a pipeline.
+Anything the engine cannot resolve offline, an expression, a value from a data source,
+is *could not check*, never a pass and never a fail. The report lists every such item.
 
-Try it on the fixtures first: `node bin/edgepq.js scan test/fixtures/rules/ELB-KX-001`.
+```bash
+edgepq scan ./terraform --fail-on high        # exit 1 if a high or critical finding failed
+terraform show -json tfplan > plan.json && edgepq scan plan.json
+```
+
+### Scanning an account
+
+Read-only, and every IAM action is named one by one: apply
+[`terraform/edgepq-readonly-role/`](terraform/edgepq-readonly-role/) in each account to
+be scanned. The role reads listener, distribution, API Gateway domain and API, KMS key,
+ACM certificate and Private CA metadata, and the 90-day CloudTrail event history for the
+client sample; it reads no function code, no environment variables and no secrets.
+
+```bash
+edgepq aws                                                   # the account your credentials belong to, every enabled region
+edgepq aws --regions eu-west-2,us-east-1
+edgepq aws --accounts 222222222222,333333333333 --role-name edgepq-readonly --external-id ...
+edgepq aws --org --role-name edgepq-readonly                  # every active account in the organization
+```
+
+The CloudTrail sample (`--cloudtrail-sample N`, default 200 per service and region, `0`
+to disable) reads KMS and Secrets Manager calls and reports which clients negotiated
+classical key exchange, by user agent. `--org` additionally needs
+`organizations:ListAccounts` on the principal running the scan.
+
+### Verifying an endpoint
+
+```bash
+edgepq verify api.example.com
+edgepq verify 203.0.113.10:8443 --servername api.example.com --json
+```
+
+Sends a browser-like TLS 1.3 ClientHello and reports the group the server put in its
+ServerHello, then a hybrid-only offer, then one real handshake per group through Node's
+own TLS stack. The verdict is one of `hybrid_selected`,
+`hybrid_supported_not_preferred`, `classical_only`, `tls_1_2_only`, `inconclusive`,
+with the evidence beside it. The real handshakes need Node 22.20 or later (the OpenSSL
+that can negotiate the hybrid groups); on an older Node they are reported as not
+testable and the verdict rests on the hellos, which the output says.
 
 ## What it checks
 
-`node bin/edgepq.js rules` prints every rule with its sources and the date
-each was verified. In short, as of 10 October 2026:
+`edgepq rules` prints every rule with its sources and the date each was verified. In
+short:
 
-- **Key exchange (harvest now, decrypt later), ranked first.** ALB and NLB
-  listener policies; API Gateway custom domains and REST API endpoints;
-  CloudFront viewer policy; KMS RSA encryption keys and ECDH key agreement.
-- **Clients.** Which SDKs actually negotiate ML-KEM with KMS and Secrets
-  Manager, from CloudTrail (AWS scan only).
+- **Key exchange (harvest now, decrypt later), ranked first.** ALB and NLB listener
+  policies; API Gateway custom domains and REST API endpoints; CloudFront viewer policy;
+  KMS RSA encryption keys and ECDH key agreement.
+- **Clients.** Which SDKs actually negotiate ML-KEM with KMS and Secrets Manager, from
+  CloudTrail (`aws` only).
 - **Signatures, ranked after.** KMS signing keys; Private CA key algorithms.
 - **Inventory.** ACM certificates and everything above, in the CBOM.
 
-Every rule has a failing and a passing fixture under `test/fixtures/rules/`
-and a test that evaluates both through the real HCL parser.
+What it does not look at is printed at the top of every report: CloudFront to origin,
+Transfer Family, Classic Load Balancers, HTTP API default endpoints, KMS replica and
+external keys, application code, other clouds.
 
-What it does not look at is printed at the top of every report.
-
-## Scanning an AWS account
-
-Read-only. Apply `terraform/edgepq-readonly-role/` in each account to be
-scanned (every IAM action is named individually; see its README). The role
-reads listener, distribution, API Gateway domain and API, KMS key, ACM
-certificate and Private CA metadata, and the 90-day CloudTrail event
-history for the client sample (those events carry the calling identity,
-source IP and user agent, and the report prints the user agents of clients
-still on classical key exchange); it reads no function code, no environment
-variables and no secrets. `--org` additionally needs
-`organizations:ListAccounts` on the principal running the scan. Then:
-
-```bash
-node bin/edgepq.js aws                                  # the account your credentials belong to, every enabled region
-node bin/edgepq.js aws --regions eu-west-2,us-east-1
-node bin/edgepq.js aws --accounts 2222,3333 --role-name edgepq-readonly --external-id ...
-node bin/edgepq.js aws --org --role-name edgepq-readonly   # every active account in the organization
-```
-
-The CloudTrail sample (`--cloudtrail-sample N`, default 200 per service and
-region, `0` to disable) reads the 90-day event history for KMS and Secrets
-Manager calls and reports which clients negotiated classical key exchange.
-
-## Verifying an endpoint
-
-```bash
-node bin/edgepq.js verify api.example.com
-node bin/edgepq.js verify 203.0.113.10:8443 --servername api.example.com --json
-```
-
-Sends a browser-like TLS 1.3 ClientHello and reports the group the server
-put in its ServerHello, then a hybrid-only offer, then handshakes through
-Node's own TLS stack as a cross-check. The hand-built hello carries a
-placeholder ML-KEM key share (this Node cannot generate a real one), which
-servers in use today accept because they choose the group before using the
-share; a server that validated the share first would answer with an alert
-and the verdict would fall back to the Node handshakes, which use real keys
-and are the authoritative evidence. Both are reported. The verdict is one of
-`hybrid_selected`, `hybrid_supported_not_preferred`, `classical_only`,
-`tls_1_2_only`, `inconclusive`, with the evidence beside it.
+Rules are YAML under [`rules/`](rules/), one file each, with a failing and a passing
+fixture under `test/fixtures/rules/`. The findings JSON is described by
+[`schema/findings.schema.json`](schema/findings.schema.json).
 
 ## Developing
 
 ```bash
-npm run check          # typecheck + every test (no network; a probe test against AWS KMS runs with EDGEPQ_NET=1)
+npm ci
+npm run check            # typecheck + every test; no network
+EDGEPQ_NET=1 npm test    # also a probe test against a live AWS endpoint
+npm run build            # dist/ (the package) and dist/web/ (the browser bundle)
 ```
 
-Rules are YAML under `rules/`; `rules/README.md` documents the schema. The
-ELB policy table is generated by `scripts/extract-elb-policies.py` from the
-AWS documentation and checked against the rule by a test.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers adding a rule, [SECURITY.md](SECURITY.md) what
+counts as a security issue, [CHANGELOG.md](CHANGELOG.md) what changed.
 
-The rules, with their sources and the date each was verified: `node bin/edgepq.js rules`.
+## Licence
+
+Apache-2.0. See [LICENSE](LICENSE), [NOTICE](NOTICE) and [TRADEMARKS.md](TRADEMARKS.md).
+EdgePQ is built by [InfraEdge](https://infraedge.org).
