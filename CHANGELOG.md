@@ -13,6 +13,11 @@ meaning; a rule that needs different semantics gets a new ID.
 - Every finding carries a `fingerprint` (FNV-1a 64 over rule id, resource type and
   address) that is the same across runs and across a file move; the SARIF results use it
   as their partial fingerprint. The findings schema requires it.
+- `scripts/check-policy-data.ts` fetches the AWS pages the tables under `rules/data` were
+  read from and compares the policy names; a weekly workflow runs it and opens an issue
+  on a difference. `test/rules.test.ts` holds the policy lists in the API Gateway rules
+  to the data file, as it already did for ELB. Reports list the pages and the dates the
+  tables were read under Coverage.
 - Every rule carries a `version`, listed by `edgepq rules` and in the reports' rules
   table, and recorded on each finding as `rule.version`. The loader rejects a rule
   without one.
@@ -26,6 +31,11 @@ meaning; a rule that needs different semantics gets a new ID.
   that curve alone is not reported as refusing every control.
 
 ### Fixed
+- APIGW-KX-001 offered `SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09` as the fix for a
+  FIPS TLS 1.3-only domain: the developer guide's spelling, which the API rejects. The fix
+  is now `SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09`. APIGW-KX-003 and APIGW-KX-004 had no
+  mapping at all for the two TLS 1.3-only policies and offered "choose a target by hand";
+  they map as the domain rule does. All three rules are at version 2.
 - The disagreement note in `edgepq verify` (raw hello selected a group that every Node
   control then refused) compared IANA group names with OpenSSL ones and never fired.
 - Usage errors name the option that went wrong (`unknown option --outdir`, `--out needs a

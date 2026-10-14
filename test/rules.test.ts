@@ -104,10 +104,31 @@ test('ELB-KX-001 policy_map matches the generated policy data', async () => {
   for (const [, m] of Object.entries(data.pq_superset)) assert.ok(data.policies[m.value]?.post_quantum, m.value);
 });
 
-test('API Gateway policy_map targets exist in the policy data and are post-quantum', async () => {
+test('API Gateway rules list the policies the data file lists, and nothing else', async () => {
   const data = JSON.parse(await readFile(join(rulesDir, 'data/apigw-security-policies.json'), 'utf8')) as {
-    policies: { [k: string]: { post_quantum: boolean; endpoint_types: string[] } };
+    policies: { [k: string]: { post_quantum: boolean; endpoint_types: string[]; accepted_by_api?: boolean } };
+    defaults: { rest_api: { [t: string]: string }; domain_name: { [t: string]: string } };
   };
+  const accepted = Object.entries(data.policies).filter(([, p]) => p.accepted_by_api !== false);
+  const forTypes = (types: string[]) => accepted.filter(([, p]) => p.endpoint_types.some((t) => types.includes(t)));
+  const inList = (pred: unknown): string[] => [...(pred as { in: string[] }).in].sort();
+  const knownList = (rule: Rule) => inList((rule.unknown_when as { any: { not?: { attr: string } }[] }).any.find((p) => p.not?.attr === 'security_policy')!.not);
+  /* Regional and private domains and REST APIs: the known list is every policy the API
+     accepts for those endpoint types; the pass list is the post-quantum ones among them. */
+  for (const [id, types, defaults] of [['APIGW-KX-001', ['REGIONAL', 'PRIVATE'], data.defaults.domain_name], ['APIGW-KX-003', ['REGIONAL'], data.defaults.rest_api], ['APIGW-KX-004', ['PRIVATE'], data.defaults.rest_api]] as const) {
+    const rule = rules.find((r) => r.id === id)!;
+    const known = forTypes([...types]).map(([n]) => n).sort();
+    assert.deepEqual(knownList(rule), known, `${id}: known policies`);
+    assert.deepEqual(inList(rule.pass_when), forTypes([...types]).filter(([, p]) => p.post_quantum).map(([n]) => n).sort(), `${id}: PQ policies`);
+    for (const t of types) assert.equal(rule.defaults?.security_policy, defaults[t], `${id}: default for ${t}`);
+    /* Every classical policy for the endpoint type has a mapping; every mapping lands on a PQ policy. */
+    const classical = forTypes([...types]).filter(([, p]) => !p.post_quantum).map(([n]) => n).sort();
+    assert.deepEqual(Object.keys(rule.tables!.policy_map!).sort(), classical, `${id}: policy_map covers every classical policy`);
+    for (const [from, entry] of Object.entries(rule.tables!.policy_map!)) {
+      const to = typeof entry === 'string' ? entry : entry.value;
+      assert.ok(data.policies[to]?.post_quantum && data.policies[to]?.accepted_by_api !== false, `${id}: ${from} maps to ${to}, which is not a PQ policy the API accepts`);
+    }
+  }
   for (const rule of rules.filter((r) => r.id.startsWith('APIGW-') && r.tables)) {
     for (const [from, entry] of Object.entries(rule.tables!.policy_map!)) {
       const to = typeof entry === 'string' ? entry : entry.value;

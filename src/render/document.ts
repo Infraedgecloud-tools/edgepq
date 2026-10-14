@@ -18,6 +18,17 @@ export type Doc = {
   rules: { id: string; version: number; title: string; category: string; severity: string; sources: number }[];
 };
 
+/* The policy tables name the AWS pages they were read from and the date;
+   a reader of the report should see how old that reading is. */
+function policyDataItems(data: ScanReport['policy_data']): string[] {
+  const items: string[] = [];
+  for (const [name, table] of [['ELB security policies', data.elb], ['API Gateway security policies', data.apigw]] as const) {
+    const sources = (table as { sources?: { url: string; retrieved: string }[] } | undefined)?.sources ?? [];
+    for (const s of sources) items.push(`${name}: ${s.url} (read ${s.retrieved})`);
+  }
+  return items;
+}
+
 export const GROUPS: { status: Status; label: string }[] = [
   { status: 'fail', label: 'Failed' }, { status: 'not_configurable', label: 'Not configurable' }, { status: 'unknown', label: 'Could not check' }, { status: 'pass', label: 'Already enabled' }, { status: 'on_by_default', label: 'On by default' },
 ];
@@ -80,7 +91,7 @@ export function buildDoc(report: ScanReport): Doc {
         fix: fixLines(f), sources: dedupe(f.sources.map((s) => ({ url: s.url, verified: s.verified }))),
       })),
     })),
-    coverage: [{ label: 'Input', items: [report.input.kind] }, ...inputItems(report.input), { label: 'Not covered', items: [...NOT_COVERED] }],
+    coverage: [{ label: 'Input', items: [report.input.kind] }, ...inputItems(report.input), { label: 'Policy data', items: policyDataItems(report.policy_data) }, { label: 'Not covered', items: [...NOT_COVERED] }],
     rules: report.rules.map((r) => ({ id: r.id, version: r.version, title: r.title, category: r.category, severity: r.severity, sources: r.sources.length })),
   };
 }
