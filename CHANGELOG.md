@@ -36,6 +36,9 @@ meaning; a rule that needs different semantics gets a new ID.
   is now `SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09`. APIGW-KX-003 and APIGW-KX-004 had no
   mapping at all for the two TLS 1.3-only policies and offered "choose a target by hand";
   they map as the domain rule does. All three rules are at version 2.
+- A patch to a file inside a called module is marked review, never auto, and its note
+  names the module and says every caller takes the change; the combined auto patch
+  leaves it out.
 - The disagreement note in `edgepq verify` (raw hello selected a group that every Node
   control then refused) compared IANA group names with OpenSSL ones and never fired.
 - Usage errors name the option that went wrong (`unknown option --outdir`, `--out needs a

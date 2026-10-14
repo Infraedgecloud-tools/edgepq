@@ -74,6 +74,39 @@ test('combinePatches: auto filter, and a second patch on the same attribute is r
   assert.match(dup.skipped[0]!.reason, /already changed/);
 });
 
+test('a fix inside a called module is review, never auto, and the note names the module', async () => {
+  const { mkdirSync } = await import('node:fs');
+  const { readTerraform } = await import('../node/read-terraform.ts');
+  const rule = rules.find((r) => r.id === 'ELB-KX-001')!;
+  const dir = mkdtempSync(join(tmpdir(), 'edgepq-mod-'));
+  try {
+    mkdirSync(join(dir, 'alb'));
+    writeFileSync(join(dir, 'main.tf'), 'module "a" {\n  source = "./alb"\n}\nmodule "b" {\n  source = "./alb"\n}\nresource "aws_lb_listener" "root" {\n  protocol   = "HTTPS"\n  ssl_policy = "ELBSecurityPolicy-TLS13-1-2-Res-2021-06"\n}\n');
+    writeFileSync(join(dir, 'alb', 'main.tf'), 'resource "aws_lb_listener" "https" {\n  protocol   = "HTTPS"\n  ssl_policy = "ELBSecurityPolicy-TLS13-1-2-Res-2021-06"\n}\n');
+    const input = await readTerraform(dir);
+    assert.equal(input.kind, 'hcl');
+    const findings = evaluateAll([rule], input.scan.resources);
+    const files = input.files.map((name) => ({ name, contents: readFileSync(join(dir, name), 'utf8') }));
+    const patches = buildPatches(findings, files);
+    const root = patches.find((p) => p.address === 'aws_lb_listener.root')!;
+    const inModule = patches.filter((p) => p.address.startsWith('module.'));
+    assert.equal(root.safety, 'auto', 'the root resource keeps the rule\'s safety');
+    assert.equal(inModule.length, 2, 'one finding per call, both on the same file');
+    for (const p of inModule) {
+      assert.equal(p.safety, 'review');
+      assert.match(p.note ?? '', /belongs to the module called as module\.[ab]; every caller/);
+      assert.match(p.diff, /# Safety: review/);
+    }
+    /* The auto patch carries the root change only; the module file is in the all patch once. */
+    assert.equal(combinePatches(patches, { safety: 'auto' }).included.length, 1);
+    const all = combinePatches(patches, { safety: 'all' });
+    assert.equal(all.included.length, 2, 'the second call\'s patch is the same edit and is reported as already changed');
+    assert.equal(all.skipped.length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('findings that are not literal, not HCL or not failing produce no patch, and refusals are reported', async () => {
   const rule = rules.find((r) => r.id === 'ELB-KX-001')!;
   const contents = 'resource "aws_lb_listener" "a" {\n  protocol   = "HTTPS"\n  ssl_policy = var.p\n}\nresource "aws_lb_listener" "b" {\n  protocol   = "HTTPS"\n  ssl_policy = "ELBSecurityPolicy-TLS13-1-2-Res-2021-06"\n}\nresource "aws_lb_listener" "b" {\n  protocol = "HTTPS"\n}\n';
