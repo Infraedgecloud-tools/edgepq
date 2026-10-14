@@ -27,6 +27,7 @@ test('scan a Terraform directory: all four outputs plus patches, exit 0, exit 1 
   const r = await run(['scan', 'test/fixtures/rules/ELB-KX-001', '--out', out]);
   assert.equal(r.code, 0, r.stderr);
   assert.match(r.stdout, /failed 3\s+not configurable 0\s+could not check 4\s+already enabled 3/);
+  assert.match(r.stdout, /high\s+ELB-KX-001\s+aws_lb_listener\.defaulted\n\s+ssl_policy: ELBSecurityPolicy-2016-08 \(default\) → ELBSecurityPolicy-TLS13-1-0-PQ-2025-09/);
   assert.match(r.stdout, /patches: 3 written, never applied/);
   const names = (await readdir(out)).sort();
   assert.deepEqual(names, ['edgepq-cbom.cdx.json', 'edgepq-findings.json', 'edgepq-report.html', 'edgepq-report.md', 'patches']);
