@@ -6,6 +6,17 @@ meaning; a rule that needs different semantics gets a new ID.
 
 ## [Unreleased]
 
+### Added
+- `edgepq-findings.sarif` beside the other outputs: SARIF 2.1.0 with one result per failed,
+  not-configurable or could-not-check finding, located on the resource block, for
+  `github/codeql-action/upload-sarif` and other consumers of the format.
+- Every finding carries a `fingerprint` (FNV-1a 64 over rule id, resource type and
+  address) that is the same across runs and across a file move; the SARIF results use it
+  as their partial fingerprint. The findings schema requires it.
+- Every rule carries a `version`, listed by `edgepq rules` and in the reports' rules
+  table, and recorded on each finding as `rule.version`. The loader rejects a rule
+  without one.
+
 ### Changed
 - A rule can declare `pass_as: on_by_default` for a pass the service provides with nothing
   to set. CF-KX-001 does: a distribution that requires HTTPS is reported under "On by
