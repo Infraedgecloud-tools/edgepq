@@ -8,6 +8,7 @@
    ========================================================================= */
 
 import { attributesRead, evaluate as evalPredicate, isExpression, lookup } from './predicate.ts';
+import { fingerprint } from './fingerprint.ts';
 import { CATEGORY_ORDER, SEVERITY_ORDER } from './types.ts';
 import type { AttrValue, Finding, ResolvedFix, Resource, Rule, Status } from './types.ts';
 
@@ -127,7 +128,8 @@ function build(rule: Rule, original: Resource, resource: Resource, defaulted: Se
     : fill(rule.message[status === 'not_applicable' || status === 'on_by_default' ? 'pass' : status === 'not_configurable' ? 'fail' : status], templateValues);
   const finding: Finding = {
     id: `${rule.id}:${where}${original.address}`,
-    rule: { id: rule.id, title: rule.title, category: rule.category, severity: rule.severity },
+    fingerprint: fingerprint(rule.id, original.type, original.address),
+    rule: { id: rule.id, version: rule.version, title: rule.title, category: rule.category, severity: rule.severity },
     status,
     resource: { type: original.type, address: original.address, origin: original.origin, ...(original.ignore_changes ? { ignore_changes: original.ignore_changes } : {}) },
     observed,

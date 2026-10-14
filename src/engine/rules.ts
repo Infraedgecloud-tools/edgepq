@@ -128,6 +128,7 @@ export function validateRule(raw: unknown): Rule {
   if (!isRecord(raw)) throw new RuleError('?', 'a rule must be a mapping');
   const id = typeof raw.id === 'string' ? raw.id : '?';
   if (!ID_RE.test(id)) throw new RuleError(id, 'id must look like AREA-KIND-001');
+  if (typeof raw.version !== 'number' || !Number.isInteger(raw.version) || raw.version < 1) throw new RuleError(id, 'version must be a whole number from 1');
   if (typeof raw.title !== 'string' || !raw.title) throw new RuleError(id, 'title is required');
   if (!Array.isArray(raw.resource_types) || raw.resource_types.length === 0 || !raw.resource_types.every((t) => typeof t === 'string')) {
     throw new RuleError(id, 'resource_types must be a non-empty list of strings');
@@ -138,7 +139,7 @@ export function validateRule(raw: unknown): Rule {
   for (const k of ['fail', 'pass', 'unknown'] as const) {
     if (typeof raw.message[k] !== 'string' || !raw.message[k]) throw new RuleError(id, `message.${k} is required`);
   }
-  const allowed = new Set(['id', 'title', 'resource_types', 'category', 'severity', 'applies_when', 'unknown_when', 'pass_when', 'fail_as', 'pass_as', 'defaults', 'fix', 'message', 'sources', 'tables']);
+  const allowed = new Set(['id', 'version', 'title', 'resource_types', 'category', 'severity', 'applies_when', 'unknown_when', 'pass_when', 'fail_as', 'pass_as', 'defaults', 'fix', 'message', 'sources', 'tables']);
   for (const k of Object.keys(raw)) if (!allowed.has(k)) throw new RuleError(id, `unknown field '${k}'`);
 
   let tables: Rule['tables'];
@@ -169,6 +170,7 @@ export function validateRule(raw: unknown): Rule {
 
   const rule: Rule = {
     id,
+    version: raw.version,
     title: raw.title,
     resource_types: raw.resource_types as string[],
     category: raw.category as Rule['category'],

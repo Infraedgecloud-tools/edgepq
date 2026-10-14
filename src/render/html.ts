@@ -54,7 +54,7 @@ export function renderHtml(report: ScanReport): string {
 <h2>What this report does and does not say</h2><p>${esc(d.intro.join(' '))}</p>${list(notCovered.items)}
 ${d.groups.map((g) => `<h2>Findings: ${esc(g.label)} (${g.findings.length})</h2>${g.findings.map(finding).join('\n') || '<p class="muted">None.</p>'}`).join('\n')}
 <h2>Coverage</h2>${d.coverage.filter((c) => c.items.length).map((c) => `<p><strong>${esc(c.label)}</strong></p>${list(c.items)}`).join('')}
-<h2>Rules run</h2><div class="scroll"><table><thead><tr><th>Rule</th><th>Title</th><th>Category</th><th>Severity</th><th>Sources</th></tr></thead><tbody>${d.rules.map((r) => `<tr><td>${esc(r.id)}</td><td>${esc(r.title)}</td><td>${esc(r.category)}</td><td>${esc(r.severity)}</td><td>${r.sources}</td></tr>`).join('')}</tbody></table></div>
+<h2>Rules run</h2><div class="scroll"><table><thead><tr><th>Rule</th><th>Version</th><th>Title</th><th>Category</th><th>Severity</th><th>Sources</th></tr></thead><tbody>${d.rules.map((r) => `<tr><td>${esc(r.id)}</td><td>${r.version}</td><td>${esc(r.title)}</td><td>${esc(r.category)}</td><td>${esc(r.severity)}</td><td>${r.sources}</td></tr>`).join('')}</tbody></table></div>
 </main></body></html>
 `;
 }

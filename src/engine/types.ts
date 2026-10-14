@@ -85,6 +85,10 @@ export type Fix =
 
 export type Rule = {
   id: string;
+  /* Bumped when the predicates, defaults, fix, severity or category change;
+     wording alone does not move it. A finding carries the version that
+     produced it, so a changed verdict can be traced to a changed rule. */
+  version: number;
   title: string;
   resource_types: string[];
   category: Category;
@@ -122,8 +126,12 @@ export type Rule = {
 export type Status = 'fail' | 'not_configurable' | 'pass' | 'on_by_default' | 'unknown' | 'not_applicable';
 
 export type Finding = {
+  /* Rule, file (for HCL) and address: unique within one report. */
   id: string;
-  rule: { id: string; title: string; category: Category; severity: Severity };
+  /* Rule, resource type and address, hashed: the same across runs and across
+     a file move. See fingerprint.ts. */
+  fingerprint: string;
+  rule: { id: string; version: number; title: string; category: Category; severity: Severity };
   status: Status;
   resource: { type: string; address: string; origin: Origin; ignore_changes?: string[] };
   /* Every attribute the predicates read, with the value they saw. A default

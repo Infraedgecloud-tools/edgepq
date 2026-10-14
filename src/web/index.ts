@@ -43,7 +43,7 @@ function report(input: ScanInput, resources: Resource[]): ScanReport {
     tool: { name: 'edgepq', version: version as string },
     generated_at: new Date().toISOString(),
     input,
-    rules: rules.map((r) => ({ id: r.id, title: r.title, category: r.category, severity: r.severity, sources: r.sources })),
+    rules: rules.map((r) => ({ id: r.id, version: r.version, title: r.title, category: r.category, severity: r.severity, sources: r.sources })),
     findings: evaluateAll(rules, resources),
     resources,
     policy_data: policyData as ScanReport['policy_data'],

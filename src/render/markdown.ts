@@ -25,7 +25,7 @@ export function renderMarkdown(report: ScanReport): string {
   }
   out.push('## Coverage', '');
   for (const c of d.coverage) if (c.items.length) out.push(`**${c.label}**`, '', ...c.items.map((i) => `- ${i}`), '');
-  out.push('## Rules run', '', '| Rule | Title | Category | Severity | Sources |', '| --- | --- | --- | --- | --- |',
-    ...d.rules.map((r) => `| ${r.id} | ${cell(r.title)} | ${r.category} | ${r.severity} | ${r.sources} |`), '');
+  out.push('## Rules run', '', '| Rule | Version | Title | Category | Severity | Sources |', '| --- | --- | --- | --- | --- | --- |',
+    ...d.rules.map((r) => `| ${r.id} | ${r.version} | ${cell(r.title)} | ${r.category} | ${r.severity} | ${r.sources} |`), '');
   return out.join('\n');
 }

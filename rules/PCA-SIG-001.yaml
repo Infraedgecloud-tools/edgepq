@@ -1,4 +1,5 @@
 id: PCA-SIG-001
+version: 1
 title: Private CA signs with a classical algorithm
 resource_types: [aws_acmpca_certificate_authority]
 category: signature

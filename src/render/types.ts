@@ -12,7 +12,7 @@ export type ScanReport = {
   generated_at: string;
   input: ScanInput;
   /* Every rule that ran, even if it produced nothing. */
-  rules: { id: string; title: string; category: Category; severity: Severity; sources: Source[] }[];
+  rules: { id: string; version: number; title: string; category: Category; severity: Severity; sources: Source[] }[];
   findings: Finding[];
   resources: Resource[];
   /* The parsed rules/data/*.json files. Passed in so renderers never read files. */

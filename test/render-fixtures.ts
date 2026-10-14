@@ -25,7 +25,7 @@ export async function buildReport(extra: Resource[] = [], withInventory = false)
     tool: { name: 'edgepq', version: await readToolVersion(join(root, 'package.json')) },
     generated_at: '2026-10-10T12:00:00.000Z',
     input: { kind: 'hcl', files: files.map((f) => f.name), notes: scan.notes },
-    rules: rules.map((r) => ({ id: r.id, title: r.title, category: r.category, severity: r.severity, sources: r.sources })),
+    rules: rules.map((r) => ({ id: r.id, version: r.version, title: r.title, category: r.category, severity: r.severity, sources: r.sources })),
     findings: evaluateAll(rules, resources),
     resources,
     policy_data: await readPolicyData(join(root, 'rules')),

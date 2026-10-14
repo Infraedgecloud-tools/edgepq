@@ -3,7 +3,8 @@
 One YAML file per rule. The loader in `src/engine/rules.ts` is the schema: a
 rule that fails validation fails CI with the field named.
 
-Required: `id` (`AREA-KIND-001`), `title`, `resource_types`, `category`
+Required: `id` (`AREA-KIND-001`), `version` (a whole number from 1; bump it when the
+predicates, defaults, fix, severity or category change, not for wording), `title`, `resource_types`, `category`
 (`key-exchange | client | signature | inventory`), `severity`, `pass_when`,
 `message.{fail,pass,unknown}`, and `sources[]` with `url` and `verified` date.
 

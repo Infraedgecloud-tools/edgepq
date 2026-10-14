@@ -3,6 +3,7 @@
 # counts of recent API calls by key exchange. Terraform never contains one; the
 # fixtures use the same resource type so the harness can exercise the rule.
 id: CLIENT-KX-001
+version: 1
 title: Clients still negotiate classical key exchange with a service that offers ML-KEM
 resource_types: [edgepq_cloudtrail_tls_sample]
 category: client

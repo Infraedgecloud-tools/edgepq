@@ -675,6 +675,7 @@
       "additionalProperties": false,
       "required": [
         "id",
+        "fingerprint",
         "rule",
         "status",
         "resource",
@@ -684,13 +685,20 @@
       ],
       "properties": {
         "id": {
+          "description": "Rule, file (for HCL input) and address. Unique within one document.",
           "type": "string"
+        },
+        "fingerprint": {
+          "description": "FNV-1a 64-bit hash of rule id, resource type and address. The same across runs and across a file move; what a suppression or a ticket keys on.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
         },
         "rule": {
           "type": "object",
           "additionalProperties": false,
           "required": [
             "id",
+            "version",
             "title",
             "category",
             "severity"
@@ -698,6 +706,11 @@
           "properties": {
             "id": {
               "type": "string"
+            },
+            "version": {
+              "description": "The rule's version at the time of the scan; it moves when the predicates, defaults, fix, severity or category change.",
+              "type": "integer",
+              "minimum": 1
             },
             "title": {
               "type": "string"

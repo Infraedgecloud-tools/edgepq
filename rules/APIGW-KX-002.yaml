@@ -1,4 +1,5 @@
 id: APIGW-KX-002
+version: 1
 title: Edge-optimized API Gateway custom domain has no post-quantum security policy available
 resource_types: [aws_api_gateway_domain_name]
 category: key-exchange
