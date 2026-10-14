@@ -12,7 +12,7 @@
 
 import net from 'node:net';
 import { buildClientHello, type OfferKind } from './clienthello.ts';
-import { CLASSICAL_GROUPS, HANDSHAKE_GROUPS, tryHandshake, type HandshakeResult } from './handshake.ts';
+import { CLASSICAL_GROUPS, HANDSHAKE_GROUPS, IANA_NAME, tryHandshake, type HandshakeResult } from './handshake.ts';
 import { alertName, cipherName, groupName, isHybrid, isPureMlkem } from './groups.ts';
 import { parseServerFlight, type Flight } from './serverhello.ts';
 
@@ -109,10 +109,11 @@ export function decide(browser: HelloOutcome, hybridOnly: HelloOutcome, handshak
 
   const x25519 = classical.find((h) => h.group === 'X25519'), p256 = classical.find((h) => h.group === 'P-256');
   if (x25519 && !x25519.completed && p256?.completed) notes.push('X25519 refused and P-256 accepted: what a FIPS endpoint does, since it offers NIST curves only.');
-  /* The classical controls are X25519 and P-256. A server that chose P-384
-     for the raw hello and refused both controls is consistent, not in
-     disagreement; only a selection the controls cover can contradict them. */
-  const controlCovers = browser.group !== undefined && classical.some((h) => h.group === browser.group?.name);
+  /* Only a selection the controls cover can contradict them: a server that
+     chose a group no control offered, and refused the controls, is consistent.
+     The raw hello names groups as IANA does and the handshakes as OpenSSL
+     does, so the comparison goes through the table. */
+  const controlCovers = browser.group !== undefined && classical.some((h) => (IANA_NAME[h.group] ?? h.group) === browser.group?.name);
   if (speaks13(browser) && classical.length > 0 && !classicalDone && controlCovers) notes.push(`Disagreement: the raw hello negotiated TLS 1.3 with ${browser.group?.name}, but Node handshakes restricted to ${list(classical)} failed (${classical.map((h) => h.error ?? 'no detail').join('; ')}).`);
 
   if (browser.outcome === 'server_hello' && browser.group && isPureMlkem(browser.group.code)) {

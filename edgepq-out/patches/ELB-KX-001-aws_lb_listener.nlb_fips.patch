@@ -1,0 +1,16 @@
+# ELB-KX-001: Load balancer listener does not offer hybrid post-quantum key exchange
+# Resource: aws_lb_listener.nlb_fips
+# Safety: auto
+# Note: Same protocols and ciphers as the current policy, plus TLS 1.3 and hybrid post-quantum key exchange: no client loses a protocol version or a cipher suite. The hybrid key share makes handshake messages larger, and the AWS KMS post-quantum TLS page warns that legacy proxies or firewalls with deep packet inspection might block them, so watch the connection logs after the change. Clients that cannot negotiate ML-KEM keep working on these policies; only the key exchange changes for clients that can. Check the connection logs' key exchange field after the change.
+# EdgePQ does not apply patches. Review, then apply with: git apply <file>, then run terraform fmt (an inserted line may re-align its neighbours)
+--- a/fail.tf
++++ b/fail.tf
+@@ -28,7 +28,7 @@
+   load_balancer_arn = aws_lb.net.arn
+   port              = 443
+   protocol          = "TLS"
+-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04"
++  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-FIPS-PQ-2025-09"
+   certificate_arn   = var.cert
+   default_action {
+     type             = "forward"

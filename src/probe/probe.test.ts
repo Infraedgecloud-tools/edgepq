@@ -49,6 +49,15 @@ test('server order honoured, classical first: hybrid_supported_not_preferred', a
   assert.ok(!r.evidence_notes.some((n) => n.startsWith('Disagreement')), r.evidence_notes.join('\n'));
 });
 
+test('a P-384-only server: the P-384 control completes, no disagreement, classical_only', async () => {
+  const r = await run(await tlsServer({ ecdhCurve: 'P-384' }));
+  assert.equal(r.verdict, 'classical_only');
+  assert.equal(r.browser_offer.group?.name, 'secp384r1');
+  assert.equal(r.handshakes.find((h) => h.group === 'P-384')?.completed, true);
+  assert.equal(r.handshakes.find((h) => h.group === 'P-256')?.completed, false);
+  assert.ok(!r.evidence_notes.some((n) => n.startsWith('Disagreement')), r.evidence_notes.join('\n'));
+});
+
 test('classical-only server: classical_only', async () => {
   const r = await run(await tlsServer({ ecdhCurve: 'X25519:P-256' }));
   assert.equal(r.verdict, 'classical_only');
@@ -188,7 +197,20 @@ test('decide: a P-384 selection the controls do not cover is not a disagreement'
     { group: 'X25519', completed: false, error: 'alert handshake_failure (the server refused this group)' },
     { group: 'P-256', completed: false, error: 'alert handshake_failure (the server refused this group)' },
   ];
-  const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 24, name: 'P-384' } }, { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } }, hs);
+  const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 24, name: 'secp384r1' } }, { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } }, hs);
   assert.equal(r.verdict, 'classical_only');
   assert.ok(!r.notes.some((n) => n.startsWith('Disagreement')), r.notes.join('\n'));
+});
+
+test('decide: a selection the controls cover, with every control refused, is a disagreement', async () => {
+  const { decide } = await import('./index.ts');
+  const refused = 'alert handshake_failure (the server refused this group)';
+  const hs = [
+    { group: 'X25519MLKEM768', completed: false, error: refused },
+    { group: 'X25519', completed: false, error: refused },
+    { group: 'P-256', completed: false, error: refused },
+    { group: 'P-384', completed: false, error: refused },
+  ];
+  const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 23, name: 'secp256r1' } }, { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } }, hs);
+  assert.ok(r.notes.some((n) => n.startsWith('Disagreement') && n.includes('secp256r1')), r.notes.join('\n'));
 });
