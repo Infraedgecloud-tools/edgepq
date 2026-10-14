@@ -1,0 +1,36 @@
+name: Policy data
+
+# The policy tables under rules/data were read from AWS pages on a stated
+# date. AWS adds policies; this asks the pages once a week whether the
+# tables still agree, and opens one issue when they do not. One small job,
+# no checkout of anything but this repository, no secrets.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Compare rules/data with the AWS pages
+        id: check
+        run: node --experimental-strip-types scripts/check-policy-data.ts 2>&1 | tee check.log
+      - name: Open an issue if the tables have drifted
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Policy data no longer agrees with the AWS pages"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          body=$(printf 'The weekly check found differences between rules/data and the AWS pages:\n\n```\n%s\n```\n\nSee rules/data/README.md for what to do. Run: https://github.com/%s/actions/runs/%s' "$(cat check.log)" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body"; else gh issue create --title "$title" --body "$body" --label policy-data; fi
