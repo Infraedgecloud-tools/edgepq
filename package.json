@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Post-quantum readiness for AWS: scans Terraform and live accounts for classical key exchange and signatures, verifies endpoints, writes a CBOM and patches.",
   "license": "Apache-2.0",
-  "author": "InfraEdge (https://infraedge.org)",
+  "author": "InfraEdge (https://infraedgecloud.com)",
   "homepage": "https://github.com/infraedgecloud-tools/edgepq#readme",
   "repository": {
     "type": "git",

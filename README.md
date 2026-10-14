@@ -40,7 +40,7 @@ edgepq-out/
 ```
 
 No account, no upload, no telemetry: `scan` reads files and writes files. The same
-scanner runs in a browser as [EdgePQ Check](https://infraedge.org/tools/edgepq-check),
+scanner runs in a browser as [EdgePQ Check](https://infraedgecloud.com/tools/edgepq-check),
 for a paste-and-see answer.
 
 ## Install
@@ -182,4 +182,4 @@ counts as a security issue, [CHANGELOG.md](CHANGELOG.md) what changed.
 ## Licence
 
 Apache-2.0. See [LICENSE](LICENSE), [NOTICE](NOTICE) and [TRADEMARKS.md](TRADEMARKS.md).
-EdgePQ is built by [InfraEdge](https://infraedge.org).
+EdgePQ is built by [InfraEdge](https://infraedgecloud.com).
