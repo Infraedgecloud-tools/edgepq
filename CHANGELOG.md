@@ -6,6 +6,20 @@ meaning; a rule that needs different semantics gets a new ID.
 
 ## [Unreleased]
 
+### Changed
+- A rule can declare `pass_as: on_by_default` for a pass the service provides with nothing
+  to set. CF-KX-001 does: a distribution that requires HTTPS is reported under "On by
+  default" rather than "Already enabled", in the summary, the reports and the findings
+  JSON (`summary.by_status.on_by_default`, finding status `on_by_default`).
+- `edgepq verify` runs a third classical control, P-384, so a server configured for
+  that curve alone is not reported as refusing every control.
+
+### Fixed
+- The disagreement note in `edgepq verify` (raw hello selected a group that every Node
+  control then refused) compared IANA group names with OpenSSL ones and never fired.
+- Usage errors name the option that went wrong (`unknown option --outdir`, `--out needs a
+  value`) instead of printing Node's `parseArgs` text.
+
 ## [0.1.0] - 2026-10-14
 
 The first release under its own repository and the first published package. EdgePQ was

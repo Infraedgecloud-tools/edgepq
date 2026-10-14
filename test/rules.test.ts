@@ -61,7 +61,7 @@ for (const rule of rules) {
       assert.ok(!pass.statuses.includes('fail') && !pass.statuses.includes('not_configurable') && !pass.statuses.includes('unknown'), `marked pass.tf must be free of failures: ${pass.statuses.join(', ')}`);
     } else {
       assert.ok(pass.statuses.length > 0, 'pass.tf has no resource the rule applies to');
-      assert.deepEqual([...new Set(pass.statuses)], ['pass'], `pass.tf statuses: ${pass.statuses.join(', ')}`);
+      assert.deepEqual([...new Set(pass.statuses)], [rule.pass_as ?? 'pass'], `pass.tf statuses: ${pass.statuses.join(', ')}`);
     }
 
     const unknownFile = join(dir, 'unknown.tf');

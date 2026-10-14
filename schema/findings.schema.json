@@ -169,6 +169,7 @@
             "not_configurable",
             "unknown",
             "pass",
+            "on_by_default",
             "not_applicable"
           ],
           "properties": {
@@ -185,6 +186,10 @@
               "minimum": 0
             },
             "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "on_by_default": {
               "type": "integer",
               "minimum": 0
             },
@@ -710,6 +715,7 @@
             "fail",
             "not_configurable",
             "pass",
+            "on_by_default",
             "unknown",
             "not_applicable"
           ]

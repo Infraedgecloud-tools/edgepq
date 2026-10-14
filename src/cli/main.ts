@@ -86,7 +86,7 @@ function summary(report: ScanReport, written: Written, outDir: string): string {
   const count = (status: string) => report.findings.filter((f) => f.status === status).length;
   const lines = [
     `edgepq ${report.tool.version}: ${report.resources.length} resource(s), ${report.rules.length} rule(s)`,
-    `  failed ${count('fail')}   not configurable ${count('not_configurable')}   could not check ${count('unknown')}   already enabled ${count('pass')}`,
+    `  failed ${count('fail')}   not configurable ${count('not_configurable')}   could not check ${count('unknown')}   already enabled ${count('pass')}   on by default ${count('on_by_default')}`,
     ...failedLines(report),
   ];
   if (report.input.kind === 'hcl') {

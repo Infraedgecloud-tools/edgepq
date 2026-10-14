@@ -100,6 +100,11 @@ export type Rule = {
      reported as `not_configurable`, so a reader does not raise a change request
      that has no change in it. */
   fail_as?: 'not_configurable';
+  /* Some rules pass because the service does the work with nothing to set
+     (CloudFront offers hybrid key exchange to every TLS 1.3 viewer). Their
+     passing outcome is reported as `on_by_default`, so the count of settings
+     someone enabled is not padded with settings nobody could have. */
+  pass_as?: 'on_by_default';
   /* What AWS uses when the attribute is absent from the configuration. Applied
      before the predicates, so a missing `ssl_policy` is checked as the default
      the API would have chosen. */
@@ -114,7 +119,7 @@ export type Rule = {
 
 /* --------------------------------------------------------------- findings */
 
-export type Status = 'fail' | 'not_configurable' | 'pass' | 'unknown' | 'not_applicable';
+export type Status = 'fail' | 'not_configurable' | 'pass' | 'on_by_default' | 'unknown' | 'not_applicable';
 
 export type Finding = {
   id: string;

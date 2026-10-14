@@ -53,7 +53,7 @@ test('cloudfront: shaped like the Terraform resource, rules apply unchanged', as
   const { resources } = await cloudfront.run(ctx);
   const findings = evaluateAll(await loadRulesFromDir(rulesDir), resources);
   assert.deepEqual(findings.map((f) => [f.rule.id, f.resource.address, f.status]), [
-    ['CF-KX-001', 'arn:cf/1', 'fail'], ['CF-KX-003', 'arn:cf/2', 'not_configurable'], ['CF-KX-001', 'arn:cf/2', 'pass'], ['CF-KX-002', 'arn:cf/1', 'pass'],
+    ['CF-KX-001', 'arn:cf/1', 'fail'], ['CF-KX-003', 'arn:cf/2', 'not_configurable'], ['CF-KX-002', 'arn:cf/1', 'pass'], ['CF-KX-001', 'arn:cf/2', 'on_by_default'],
   ]);
   m.restore();
 });
