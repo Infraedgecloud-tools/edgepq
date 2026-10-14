@@ -74,6 +74,9 @@ function exchange(host: string, port: number, hello: Buffer, timeoutMs: number):
   });
 }
 
+/* Errors that say nothing about the server's choice of group. */
+export const isTransient = (error?: string): boolean => error !== undefined && /no handshake within|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|connection closed during handshake/.test(error);
+
 const speaks13 = (o: HelloOutcome) => (o.outcome === 'server_hello' || o.outcome === 'hello_retry_request') && o.tls_version === '1.3';
 const hybridNamed = (o: HelloOutcome) => o.group !== undefined && isHybrid(o.group.code);
 
@@ -106,7 +109,11 @@ export function decide(browser: HelloOutcome, hybridOnly: HelloOutcome, handshak
 
   const x25519 = classical.find((h) => h.group === 'X25519'), p256 = classical.find((h) => h.group === 'P-256');
   if (x25519 && !x25519.completed && p256?.completed) notes.push('X25519 refused and P-256 accepted: what a FIPS endpoint does, since it offers NIST curves only.');
-  if (speaks13(browser) && classical.length > 0 && !classicalDone) notes.push(`Disagreement: the raw hello negotiated TLS 1.3, but Node handshakes restricted to ${list(classical)} failed (${classical.map((h) => h.error ?? 'no detail').join('; ')}).`);
+  /* The classical controls are X25519 and P-256. A server that chose P-384
+     for the raw hello and refused both controls is consistent, not in
+     disagreement; only a selection the controls cover can contradict them. */
+  const controlCovers = browser.group !== undefined && classical.some((h) => h.group === browser.group?.name);
+  if (speaks13(browser) && classical.length > 0 && !classicalDone && controlCovers) notes.push(`Disagreement: the raw hello negotiated TLS 1.3 with ${browser.group?.name}, but Node handshakes restricted to ${list(classical)} failed (${classical.map((h) => h.error ?? 'no detail').join('; ')}).`);
 
   if (browser.outcome === 'server_hello' && browser.group && isPureMlkem(browser.group.code)) {
     notes.push(`The server selected ${browser.group.name}, a pure ML-KEM group the browser-like offer did not include; that is post-quantum but not one of the hybrid groups, and not what a conformant server should do.`);
@@ -126,6 +133,12 @@ export function decide(browser: HelloOutcome, hybridOnly: HelloOutcome, handshak
     }
     if (hybridNamed(hybridOnly)) {
       notes.push(`Disagreement: the hybrid-only raw hello got ${hybridOnly.group?.name} selected, but no Node hybrid handshake completed.`);
+      return { verdict: 'inconclusive', notes };
+    }
+    /* A handshake that timed out or lost its connection was not refused.
+       Calling that classical_only would turn a flaky network into a finding. */
+    if (testable.every((h) => isTransient(h.error))) {
+      notes.push(`Inconclusive: no hybrid handshake completed, but none was refused either (${testable.map((h) => `${h.group}: ${h.error ?? 'no detail'}`).join('; ')}); try again.`);
       return { verdict: 'inconclusive', notes };
     }
     if (speaks13(browser)) return { verdict: 'classical_only', notes };
@@ -161,16 +174,32 @@ export async function probe(
     return exchange(target.host, port, hello.bytes, timeoutMs).then((x) => ({ ...x, notes: hello.notes }));
   };
   const browser = await run('browser');
+  /* A host that could not be connected to will not answer six more times.
+     Nothing was sent, so the notes about what the hello carried do not apply. */
+  if (!browser.connected) {
+    const reason = browser.result.error ?? browser.result.outcome;
+    return {
+      target: { host: target.host, port, servername },
+      probed_at: probedAt,
+      reachable: false,
+      browser_offer: browser.result,
+      hybrid_only_offer: { outcome: 'error', error: 'not attempted: the host could not be reached' },
+      handshakes: HANDSHAKE_GROUPS.map((group) => ({ group, completed: false, error: 'not attempted: the host could not be reached' })),
+      verdict: 'inconclusive',
+      evidence_notes: [`Unreachable: ${reason}. Nothing was negotiated and no verdict about the endpoint follows.`],
+    };
+  }
   const hybridOnly = await run('hybrid_only');
-  const handshakes: HandshakeResult[] = [];
-  for (const g of HANDSHAKE_GROUPS) handshakes.push(await tryHandshake(target.host, port, servername, g, timeoutMs));
+  /* The handshakes are independent connections; run together they take one
+     timeout at most rather than one per group. */
+  const handshakes: HandshakeResult[] = await Promise.all(HANDSHAKE_GROUPS.map((g) => tryHandshake(target.host, port, servername, g, timeoutMs)));
 
   const { verdict, notes } = decide(browser.result, hybridOnly.result, handshakes);
   for (const h of handshakes) if (h.not_testable) notes.push(`${h.group} is not testable on this Node (OpenSSL refused the group name).`);
   return {
     target: { host: target.host, port, servername },
     probed_at: probedAt,
-    reachable: browser.connected || hybridOnly.connected || handshakes.some((h) => h.completed),
+    reachable: true,
     browser_offer: browser.result,
     hybrid_only_offer: hybridOnly.result,
     handshakes,

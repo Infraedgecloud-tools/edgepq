@@ -90,9 +90,16 @@ test('rules lists every rule with its sources', async () => {
   assert.match(r.stdout, /\(verified \d{4}-\d{2}-\d{2}\)/);
 });
 
-test('verify against nothing listening is inconclusive, not a crash', async () => {
+test('an empty directory is an error, not a clean scan', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'edgepq-empty-'));
+  const r = await run(['scan', dir, '--out', join(dir, 'out')]);
+  assert.equal(r.code, 2, r.stdout);
+  assert.match(r.stderr, /no Terraform resources found/);
+});
+
+test('verify against nothing listening is inconclusive and exits 2, not a crash', async () => {
   const r = await run(['verify', '127.0.0.1:1', '--json', '--timeout', '1000']);
-  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.code, 2, r.stderr);
   const result = JSON.parse(r.stdout) as { verdict: string; reachable: boolean; target: { host: string; port: number } };
   assert.equal(result.verdict, 'inconclusive');
   assert.equal(result.reachable, false);

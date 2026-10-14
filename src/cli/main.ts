@@ -25,12 +25,17 @@ const USAGE = `usage:
   edgepq scan <dir | plan.json | state.json> [--out DIR] [--fail-on SEV]
   edgepq aws [--accounts a,b] [--org] [--regions r,s] [--role-name N] [--external-id X]
              [--cloudtrail-sample N] [--out DIR] [--fail-on SEV]
-  edgepq verify <host[:port]> [--servername NAME] [--json]
+  edgepq verify <host[:port]> [--servername NAME] [--json] [--timeout MS]
   edgepq rules
 
   --out DIR        where to write the outputs (default: ./edgepq-out)
   --fail-on SEV    exit 1 when a failed finding is at or above SEV
-                   (critical, high, medium, low, info)`;
+                   (critical, high, medium, low, info)
+
+Exit codes: scan and aws exit 0, 1 when --fail-on is reached, 2 on bad input or
+when nothing was found to check. verify exits 0 when the endpoint selects or
+supports a hybrid group, 1 when it is classical or TLS 1.2 only, 2 when the
+answer is inconclusive or the host could not be reached.`;
 
 class UsageError extends Error {}
 
@@ -45,7 +50,13 @@ function summary(report: ScanReport, written: Written, outDir: string): string {
     `edgepq ${report.tool.version}: ${report.resources.length} resource(s), ${report.rules.length} rule(s)`,
     `  failed ${count('fail')}   not configurable ${count('not_configurable')}   could not check ${count('unknown')}   already enabled ${count('pass')}`,
   ];
-  if (report.input.kind === 'hcl' && report.input.notes.length) lines.push(`  not inspected: ${report.input.notes.length} item(s) (module calls, dynamic blocks or parse errors; see the report)`);
+  if (report.input.kind === 'hcl') {
+    const notes = report.input.notes;
+    const gaps = notes.filter((n) => (n.kind === 'module-call' && !n.scanned) || n.kind === 'dynamic-block' || n.kind === 'parse-error' || n.kind === 'count-expression').length;
+    const assumed = notes.filter((n) => n.kind === 'default-used').length;
+    if (gaps) lines.push(`  not inspected: ${gaps} item(s) (remote modules, dynamic blocks, count expressions or parse errors; see the report)`);
+    if (assumed) lines.push(`  assumed: ${assumed} value(s) taken from variable defaults; see the report`);
+  }
   if (report.input.kind === 'aws' && report.input.not_checked.length) lines.push(`  not checked: ${report.input.not_checked.length} account/region/service combination(s); see the report`);
   if (written.patches) lines.push(`  patches: ${written.patches} written, never applied${written.perFixFilesOmitted ? ' (combined patches only: more than 200 fixes)' : ''}`);
   for (const s of written.patchesSkipped) lines.push(`  patch not written: ${s.ruleId} ${s.address}: ${s.reason}`);
@@ -101,6 +112,12 @@ async function scan(args: string[], io: Io): Promise<number> {
   const { report, input } = await reportForTerraform(target, await loadRules());
   const written = await writeOutputs(report, outDir, { target, input });
   io.out(summary(report, written, outDir));
+  /* Nothing to check is not a clean result. A gate pointed at the wrong
+     directory, or at a plan with no resources, must not pass quietly. */
+  if (report.resources.length === 0) {
+    io.err(`edgepq: no Terraform resources found in ${target}; is this the right ${input.kind === 'hcl' ? 'directory' : 'file'}?`);
+    return 2;
+  }
   /* A file the tool could not read is an input error, not a clean scan: the
      outputs are still written, but the exit code says the tree was not covered. */
   const unreadable = report.input.kind === 'hcl' ? report.input.notes.filter((n) => n.kind === 'parse-error') : [];
@@ -139,8 +156,15 @@ async function verify(args: string[], io: Io): Promise<number> {
   const target = positionals[0];
   if (!target) throw new UsageError('verify needs a host or host:port');
   const { host, port } = parseHostPort(target);
-  const result = await probe({ host, port, ...(values.servername ? { servername: values.servername } : {}) }, { timeoutMs: values.timeout ? Number(values.timeout) : 5000 });
-  if (values.json) { io.out(JSON.stringify(result, null, 2)); return 0; }
+  const timeoutMs = values.timeout === undefined ? 5000 : Number(values.timeout);
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new UsageError('--timeout must be a whole number of milliseconds');
+  const result = await probe({ host, port, ...(values.servername ? { servername: values.servername } : {}) }, { timeoutMs });
+  /* The verdict is the exit code, so verify can gate a pipeline: 0 for a
+     hybrid group selected or supported, 1 for classical or TLS 1.2 only, 2
+     when the answer is inconclusive or the host was not reached. */
+  const code = result.verdict === 'hybrid_selected' || result.verdict === 'hybrid_supported_not_preferred' ? 0
+    : result.verdict === 'classical_only' || result.verdict === 'tls_1_2_only' ? 1 : 2;
+  if (values.json) { io.out(JSON.stringify(result, null, 2)); return code; }
   const b = result.browser_offer;
   const lines = [
     `${result.target.servername}:${result.target.port} probed ${result.probed_at}`,
@@ -151,7 +175,7 @@ async function verify(args: string[], io: Io): Promise<number> {
     ...result.evidence_notes.map((n) => `  note: ${n}`),
   ];
   io.out(lines.join('\n'));
-  return 0;
+  return code;
 }
 
 /* host, host:port, [v6], [v6]:port. A bare IPv6 literal without brackets

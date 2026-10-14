@@ -36,8 +36,12 @@ function inputItems(input: ScanInput): { label: string; items: string[] }[] {
     return [
       { label: 'Files scanned', items: input.files },
       { label: 'Patches not written', items: (input.patches_skipped ?? []).map((s) => `${s.ruleId} ${s.address}: ${s.reason}. A change by hand is still needed.`) },
-      { label: 'Notes', items: input.notes.map((n) => n.kind === 'module-call' ? `${n.address} (${n.file}) is a module call${n.source ? ` of ${n.source}` : ''}; the values it passes in were not applied, and a module from a registry or remote source was not scanned.`
+      { label: 'Notes', items: input.notes.map((n) => n.kind === 'module-call' ? (n.scanned
+          ? `${n.address} (${n.file}) calls ${n.source}; that directory was read under this address with the values the call passes in.`
+          : `${n.address} (${n.file}) is a module call${n.source ? ` of ${n.source}` : ''}; a module from a registry or a remote source is not scanned, so its resources are not in this report.`)
         : n.kind === 'count-zero' ? `${n.address} (${n.file}) has count = 0, so nothing is created; not checked.`
+        : n.kind === 'count-expression' ? `${n.address} (${n.file}) has a ${n.meta} expression, so how many exist, and whether any do, is decided at plan time; the body is checked as written.`
+        : n.kind === 'default-used' ? `${n.address} (${n.file}): ${n.attr} is var.${n.variable}, taken from the variable's default; a plan may pass something else.`
         : n.kind === 'dynamic-block' ? `${n.address} (${n.file}) generates "${n.block}" blocks at plan time; they were not read.`
         : `${n.file} could not be parsed: ${n.message}`) },
     ];

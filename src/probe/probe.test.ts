@@ -168,3 +168,27 @@ test('kms.eu-west-2.amazonaws.com selects X25519MLKEM768', { skip: net_ ? false 
   assert.equal(r.verdict, 'hybrid_selected');
   assert.equal(r.browser_offer.group?.name, 'X25519MLKEM768');
 });
+
+test('decide: hybrid handshakes that timed out are inconclusive, not classical', async () => {
+  const { decide } = await import('./index.ts');
+  const hs = [
+    { group: 'X25519MLKEM768', completed: false, error: 'no handshake within 5000 ms' },
+    { group: 'SecP256r1MLKEM768', completed: false, error: 'no handshake within 5000 ms' },
+    { group: 'X25519', completed: true, protocol: 'TLSv1.3' },
+  ];
+  const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 29, name: 'X25519' } }, { outcome: 'timeout', error: 'no ServerHello within 5000 ms' }, hs);
+  assert.equal(r.verdict, 'inconclusive');
+  assert.ok(r.notes.some((n) => n.includes('none was refused')));
+});
+
+test('decide: a P-384 selection the controls do not cover is not a disagreement', async () => {
+  const { decide } = await import('./index.ts');
+  const hs = [
+    { group: 'X25519MLKEM768', completed: false, error: 'alert handshake_failure (the server refused this group)' },
+    { group: 'X25519', completed: false, error: 'alert handshake_failure (the server refused this group)' },
+    { group: 'P-256', completed: false, error: 'alert handshake_failure (the server refused this group)' },
+  ];
+  const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 24, name: 'P-384' } }, { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } }, hs);
+  assert.equal(r.verdict, 'classical_only');
+  assert.ok(!r.notes.some((n) => n.startsWith('Disagreement')), r.notes.join('\n'));
+});

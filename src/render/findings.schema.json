@@ -62,8 +62,22 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["ruleId", "address", "reason"],
-                "properties": { "ruleId": { "type": "string" }, "address": { "type": "string" }, "reason": { "type": "string" } }
+                "required": [
+                  "ruleId",
+                  "address",
+                  "reason"
+                ],
+                "properties": {
+                  "ruleId": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
               }
             },
             "notes": {
@@ -365,6 +379,9 @@
             },
             "source": {
               "type": "string"
+            },
+            "scanned": {
+              "type": "boolean"
             }
           }
         },
@@ -428,6 +445,61 @@
               "type": "string"
             },
             "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "address",
+            "file",
+            "meta"
+          ],
+          "properties": {
+            "kind": {
+              "const": "count-expression"
+            },
+            "address": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "meta": {
+              "enum": [
+                "count",
+                "for_each"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "address",
+            "file",
+            "attr",
+            "variable"
+          ],
+          "properties": {
+            "kind": {
+              "const": "default-used"
+            },
+            "address": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "attr": {
+              "type": "string"
+            },
+            "variable": {
               "type": "string"
             }
           }

@@ -18,7 +18,9 @@ test('the basic fixture through the real parser', async () => {
   assert.equal(lookup(classical, 'ssl_policy').value, 'ELBSecurityPolicy-2016-08');
   assert.equal(lookup(classical, 'default_action.type').value, 'forward');
   assert.equal(lookup(classical, 'load_balancer_arn').unknown, true);
-  assert.equal(lookup(byAddress['aws_lb_listener.from_variable']!, 'ssl_policy').unknown, true);
+  /* var.policy has a default in the same file: it resolves, and the report
+     says the value is an assumption. */
+  assert.equal(lookup(byAddress['aws_lb_listener.from_variable']!, 'ssl_policy').value, 'ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09');
 
   const cf = byAddress['aws_cloudfront_distribution.site']!;
   assert.equal(lookup(cf, 'viewer_certificate.minimum_protocol_version').value, 'TLSv1.2_2021');
@@ -28,6 +30,7 @@ test('the basic fixture through the real parser', async () => {
 
   assert.deepEqual(scan.notes, [
     { kind: 'dynamic-block', address: 'aws_cloudfront_distribution.site', file: 'main.tf', block: 'ordered_cache_behavior' },
+    { kind: 'default-used', address: 'aws_lb_listener.from_variable', file: 'main.tf', attr: 'ssl_policy', variable: 'policy' },
     { kind: 'module-call', address: 'module.alb', file: 'main.tf', source: 'terraform-aws-modules/alb/aws' },
   ]);
 });

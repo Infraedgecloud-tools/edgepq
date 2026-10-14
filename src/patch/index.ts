@@ -42,8 +42,10 @@ export function buildPatchesWithSkips(findings: Finding[], files: { name: string
     const source = files.find((x) => x.name === file)?.contents;
     const skip = (reason: string) => skipped.push({ ruleId: f.rule.id, address: f.resource.address, file, reason });
     if (source === undefined) { skip('source file was not supplied'); continue; }
-    const dot = f.resource.address.indexOf('.');
-    const type = f.resource.address.slice(0, dot), name = f.resource.address.slice(dot + 1);
+    /* The address may carry a module or directory prefix; the block in the
+       file is still type "name". */
+    const type = f.resource.type;
+    const name = f.resource.address.slice(f.resource.address.lastIndexOf(`${type}.`) + type.length + 1);
     if (file.endsWith('.json')) { skip('JSON Terraform files are not patched; change the value by hand'); continue; }
     const plan = planFix(source, type, name, fix);
     if (plan.edits.length === 0) { skip(plan.reason ?? 'no change'); continue; }
