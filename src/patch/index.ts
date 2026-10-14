@@ -49,11 +49,20 @@ export function buildPatchesWithSkips(findings: Finding[], files: { name: string
     if (file.endsWith('.json')) { skip('JSON Terraform files are not patched; change the value by hand'); continue; }
     const plan = planFix(source, type, name, fix);
     if (plan.edits.length === 0) { skip(plan.reason ?? 'no change'); continue; }
-    /* An attribute under lifecycle.ignore_changes: the patch applies, Terraform
-       ignores it on the live resource, and the next scan reports it enabled. */
+    /* Two reasons a fix the rule calls automatic still needs a person:
+       an attribute under lifecycle.ignore_changes (the patch applies, Terraform
+       ignores it on the live resource, and the next scan reports it enabled),
+       and a file inside a called module, which every caller of that module
+       shares, so the change lands on all of them at once. */
     const ignored = (f.resource.ignore_changes ?? []).some((a) => a === 'all' || a === fix.attr);
-    const safety = ignored ? 'review' : fix.safety;
-    const note = ignored ? `${fix.attr} is listed in lifecycle.ignore_changes, so this change will not reach the existing resource until that entry is removed.${fix.note ? ' ' + fix.note : ''}` : fix.note;
+    const inModule = /^module\./.test(f.resource.address);
+    const safety = ignored || inModule ? 'review' : fix.safety;
+    const reasons = [
+      ignored ? `${fix.attr} is listed in lifecycle.ignore_changes, so this change will not reach the existing resource until that entry is removed.` : undefined,
+      inModule ? `${file} belongs to the module called as ${f.resource.address.replace(/\.[^.]+\.[^.]+$/, '')}; every caller of that module takes this change. If callers need different values, make ${fix.attr} a variable of the module instead.` : undefined,
+      fix.note,
+    ].filter(Boolean);
+    const note = reasons.length ? reasons.join(' ') : undefined;
     const patch: Patch = {
       ruleId: f.rule.id, address: f.resource.address, file, safety,
       diff: header({ ruleId: f.rule.id, title: f.rule.title, address: f.resource.address, safety, ...(note ? { note } : {}) }) + unifiedDiff(source, applyEdits(source, plan.edits), file, file, 3, span(plan.edits)),
