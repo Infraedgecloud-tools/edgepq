@@ -38,9 +38,11 @@ const USAGE = `usage:
 AWS coverage defaults to strict: partial or failed collection exits 2.
 --coverage advisory permits partial collection; zero usable collection still exits 2.
 A fully enumerated empty AWS scope is complete. Commercial aws partition only.
+Explicit --accounts and --regions lists must contain at least one nonempty value.
 
 Exit codes: scan and aws exit 0, 1 when --fail-on is reached, 2 on bad input or
-when nothing was found to check. verify exits 0 when the endpoint selects or
+collection failure. scan also exits 2 for zero resources; complete empty AWS
+enumeration exits 0. verify exits 0 when the endpoint selects or
 completes a real hybrid key exchange, 1 when it is classical or TLS 1.2 only, 2 when the
 answer is inconclusive or the host could not be reached.`;
 
@@ -122,6 +124,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   io = { out: (s) => terminal.out(clean(s)), err: (s) => terminal.err(clean(s)) };
   try {
     const [command, ...rest] = argv;
+    if (command !== undefined && ['rules', '--help', '-h', 'help', '--version', '-v'].includes(command) && rest.length) throw new UsageError(`${command} takes no arguments`);
     switch (command) {
       case 'scan': return await scan(rest, io);
       case 'aws': return await aws(rest, io);
@@ -156,6 +159,7 @@ async function scan(args: string[], io: Io): Promise<number> {
   const { values, positionals } = options({ args, allowPositionals: true, options: { out: { type: 'string' }, 'fail-on': { type: 'string' } } });
   const target = positionals[0];
   if (!target) throw new UsageError('scan needs a Terraform directory or a terraform show -json file');
+  if (positionals.length !== 1) throw new UsageError('scan needs exactly one Terraform directory or JSON file');
   const threshold = parseThreshold(values['fail-on']);
   const outDir = values.out ?? 'edgepq-out';
   await stat(target).catch(() => { throw new UsageError(`${target}: no such file or directory`); });
@@ -178,6 +182,13 @@ async function scan(args: string[], io: Io): Promise<number> {
   return threshold && severityAtOrAbove(report, threshold) > 0 ? 1 : 0;
 }
 
+function explicitScope(value: string | undefined, flag: string): string[] | undefined {
+  if (value === undefined) return undefined;
+  const scope = value.split(',').map((part) => part.trim()).filter(Boolean);
+  if (!scope.length) throw new UsageError(`${flag} requires at least one nonempty value`);
+  return scope;
+}
+
 async function aws(args: string[], io: Io): Promise<number> {
   const { values } = options({ args, options: {
     accounts: { type: 'string' }, org: { type: 'boolean' }, regions: { type: 'string' }, 'role-name': { type: 'string' },
@@ -185,6 +196,8 @@ async function aws(args: string[], io: Io): Promise<number> {
   } });
   const threshold = parseThreshold(values['fail-on']);
   const outDir = values.out ?? 'edgepq-out';
+  const accounts = explicitScope(values.accounts, '--accounts');
+  const regions = explicitScope(values.regions, '--regions');
   const timeoutMs = values.timeout === undefined ? 120000 : Number(values.timeout);
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 3600000) throw new UsageError('--timeout must be between 1 and 3600000 milliseconds');
   const coverage = values.coverage ?? 'strict';
@@ -193,9 +206,9 @@ async function aws(args: string[], io: Io): Promise<number> {
   if (sample !== undefined && (!Number.isInteger(sample) || sample < 0 || sample > 10000)) throw new UsageError('--cloudtrail-sample must be a whole number from 0 to 10000');
   const { report } = await reportForAws({
     timeoutMs,
-    ...(values.accounts ? { accounts: values.accounts.split(',').map((s) => s.trim()).filter(Boolean) } : {}),
+    ...(accounts !== undefined ? { accounts } : {}),
     ...(values.org ? { organization: true } : {}),
-    ...(values.regions ? { regions: values.regions.split(',').map((s) => s.trim()).filter(Boolean) } : {}),
+    ...(regions !== undefined ? { regions } : {}),
     ...(values['role-name'] ? { roleName: values['role-name'] } : {}),
     ...(values['external-id'] ? { externalId: values['external-id'] } : {}),
     ...(sample !== undefined ? { cloudTrailSample: sample } : {}),
@@ -215,6 +228,7 @@ async function verify(args: string[], io: Io): Promise<number> {
   const { values, positionals } = options({ args, allowPositionals: true, options: { servername: { type: 'string' }, json: { type: 'boolean' }, timeout: { type: 'string' } } });
   const target = positionals[0];
   if (!target) throw new UsageError('verify needs a host or host:port');
+  if (positionals.length !== 1) throw new UsageError('verify needs exactly one host or host:port');
   const { host, port } = parseHostPort(target);
   const timeoutMs = values.timeout === undefined ? 5000 : Number(values.timeout);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 60000) throw new UsageError('--timeout must be a whole number of milliseconds');
