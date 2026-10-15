@@ -3,7 +3,6 @@
 <p align="center">
   <a href="https://github.com/infraedgecloud-tools/edgepq/releases/latest"><img src="https://img.shields.io/github/v/release/infraedgecloud-tools/edgepq?display_name=tag&color=0B2545" alt="Release"></a>
   <a href="https://github.com/infraedgecloud-tools/edgepq/actions/workflows/ci.yml"><img src="https://github.com/infraedgecloud-tools/edgepq/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://www.npmjs.com/package/@infraedgecloud/edgepq"><img src="https://img.shields.io/npm/v/@infraedgecloud/edgepq?color=1A63B0&label=npm" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-Apache--2.0-1A63B0" alt="Apache-2.0"></a>
 </p>
 
@@ -23,7 +22,8 @@ answers. Nothing is ever called safe or compliant, and nothing is ever applied.
 ## Try it in a minute
 
 ```bash
-npx @infraedgecloud/edgepq scan ./terraform
+npm install -g https://github.com/Infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz
+edgepq scan ./terraform
 ```
 
 Needs Node 20.10 or later. The summary prints to the terminal and the files land in
@@ -47,19 +47,18 @@ for a paste-and-see answer.
 
 | | |
 |---|---|
-| npm | `npm install -g @infraedgecloud/edgepq` |
-| One-off | `npx @infraedgecloud/edgepq scan ./terraform` |
 | Release tarball | `npm install -g https://github.com/infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz` |
 | From source | `git clone https://github.com/infraedgecloud-tools/edgepq && cd edgepq && npm ci && node bin/edgepq.js` (Node 22.18 or later runs the TypeScript directly) |
 
-Every release attaches the tarball, its SHA-256 and a
-[build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations):
+As verified on 2026-10-15, v0.1.0 has a GitHub release tarball and `SHA256SUMS`. The tarball checksum, installation, `--help` and `--version` were checked on Linux with Node 24.19.0. The named npm registry package returned E404; registry installation is pending publication. The release tarball contains the released behaviour; the hardening described below is an unreleased candidate.
+
+The workflow requests a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). Verify it independently before relying on it; attestation verification was not executed in this environment:
 
 ```bash
 gh attestation verify infraedgecloud-edgepq-0.1.0.tgz --owner infraedgecloud-tools
 ```
 
-The npm package is published with provenance from the same workflow.
+A successful GitHub release does not establish npm publication or prove that provenance verification succeeds.
 
 ## Four surfaces, one engine
 
@@ -70,11 +69,13 @@ The npm package is published with provenance from the same workflow.
 | `edgepq aws` | read-only API calls across accounts and regions | findings, report, CBOM, evidence |
 | `edgepq verify <host>` | a few TLS connections | the key exchange the endpoint selects, and whether a hybrid handshake completes |
 
-Exit codes: `scan` and `aws` exit 0, 1 when `--fail-on SEV` is reached by a failed
-finding, 2 on bad input or when nothing was found to check. A gate pointed at the wrong
-directory must not pass. `verify` exits 0 when the endpoint selects or supports a
-hybrid group, 1 when it is classical or TLS 1.2 only, 2 when the answer is inconclusive
-or the host could not be reached.
+Current-source exit policy (unreleased): `scan` and `aws` exit 1 when a failed finding reaches `--fail-on SEV`, and 2 for input or execution failures. `scan` exits 2 for zero resources or HCL parse errors. A valid no-op JSON document is recognised, but its empty scope still exits 2 under the scan policy.
+
+AWS collection has a separate `input.status`: `complete`, `partial`, or `failed`, with an account/region/service ledger in `input.coverage`. Enabled regions are discovered independently for each account. Global CloudFront collection runs once per account in `us-east-1`. Only the commercial `aws` partition is supported. Successful enumeration with no resources is complete; denied or unobserved scopes are not empty inventories.
+
+`aws --coverage strict` is the default: partial or failed collection exits 2 regardless of `--fail-on`. `--coverage advisory` explicitly permits partial collection, with a warning, while zero usable collection still exits 2. Disabling CloudTrail sampling records an excluded scope, which cannot by itself make collection successful. Complete collection describes enumeration, not universal PQ readiness or a complete CloudTrail history.
+
+`verify` exits 0 only after a real hybrid key exchange completes, 1 for classical or TLS 1.2 evidence, and 2 for inconclusive results or unreachable hosts. Key exchange and certificate authentication are separate evidence: inspect each handshake's `authenticated` and `authentication_error` fields. A completed hybrid exchange with an unauthenticated certificate is not an authenticated endpoint identity.
 
 ### Scanning Terraform
 
@@ -99,7 +100,8 @@ In GitHub Actions, the SARIF file turns the failures into code scanning alerts o
 resource block, keyed on a fingerprint that survives a file move:
 
 ```yaml
-- run: npx @infraedgecloud/edgepq scan ./terraform --out edgepq-out
+- run: npm install -g https://github.com/Infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz
+- run: edgepq scan ./terraform --out edgepq-out
   continue-on-error: true
 - uses: github/codeql-action/upload-sarif@v3
   with:
@@ -141,10 +143,22 @@ edgepq verify 203.0.113.10:8443 --servername api.example.com --json
 Sends a browser-like TLS 1.3 ClientHello and reports the group the server put in its
 ServerHello, then a hybrid-only offer, then one real handshake per group through Node's
 own TLS stack. The verdict is one of `hybrid_selected`,
-`hybrid_supported_not_preferred`, `classical_only`, `tls_1_2_only`, `inconclusive`,
+`hybrid_supported_not_preferred`, `hybrid_supported_preference_unknown`, `classical_only`, `tls_1_2_only`, `inconclusive`,
 with the evidence beside it. The real handshakes need Node 22.20 or later (the OpenSSL
 that can negotiate the hybrid groups); on an older Node they are reported as not
-testable and the verdict rests on the hellos, which the output says.
+testable; placeholder ML-KEM shares, ServerHello selections and HelloRetryRequests alone cannot yield a successful hybrid verdict. Mixed transient and definitive hybrid failures remain inconclusive. Each connection has an absolute timeout (default 5000 ms, maximum 60000 ms); a raw server flight is capped at 65536 bytes. The full probe can take about three timeout periods.
+
+### Output ownership and recovery (unreleased)
+
+Use a fresh empty `--out` directory for the first candidate run. EdgePQ records its generated files in `.edgepq-output.json`; later runs replace the whole owned output, removing patches from older findings. A nonempty legacy output without a manifest, user additions, missing files, symlinks, and filename collisions are refused. Preserve or move those files and choose a new empty directory. Generated patches are suggestions and are never applied.
+
+Outputs are staged beside the destination, with an exclusive `<out>.edgepq-lock`, then directories are renamed. This is staged replacement, not a crash-atomic filesystem transaction. Process termination can leave the destination absent, a `.<name>-run-*-previous` backup, a staging directory, and a lock. No run publishes a mixture of old and new files. After confirming no EdgePQ process is active, preserve the prior directory if needed and choose a new empty output path. Remove only the identified generated staging/backup/lock paths after inspection. EdgePQ does not recursively delete an arbitrary chosen directory. Filesystem errors still exit 2; writable-path testing under an unprivileged account and Windows crash recovery remain release gates.
+
+### Input and evidence limits (unreleased)
+
+JSON major format 1 is supported; newer minor fields are tolerated. Incomplete or errored plans, unknown actions, malformed managed resources, and malformed state structures fail rather than silently passing. `applyable: false` alone is not an error. Inputs are limited to 16 MiB per file, 64 MiB total, 10000 Terraform source files and 64 directory/value levels. Terraform input symlinks are refused. These are bounded checks, not a full Terraform evaluator: module instance expansion, dynamic blocks and unresolved expressions can remain unknown. No repository code is executed to resolve them.
+
+CloudTrail is a capped recent event sample, not proof of all clients or traffic. Missing events, events without TLS details, disabled sampling and zero evidence must not be read as PQ use. Review `no_tls_details`, sample counts and coverage. AWS requests use at most three attempts, 2-second connection and 10-second request/socket timeouts. `aws --timeout MS` sets the total run deadline (default 120000, maximum 3600000); cancellation propagates to service requests and AssumeRole. Scopes are capped at 100 accounts, 100 explicit regions, 5000 collection combinations and 1000 pages per stream. Repeated continuation tokens fail collection. Credential-provider startup follows the SDK provider chain; configure credentials explicitly in CI. Independent current-source revalidation of every AWS rule claim, broader HCL semantics and large-monorepo benchmarking remain pending; see `docs/release-evidence.md`.
 
 ## What it checks
 

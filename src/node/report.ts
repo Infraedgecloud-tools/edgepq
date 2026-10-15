@@ -43,6 +43,6 @@ export async function reportForTerraform(target: string, rules: Rule[]): Promise
 
 export async function reportForAws(opts: AwsScanOptions, rules: Rule[]): Promise<{ report: ScanReport; scan: AwsScan }> {
   const scan = await scanAws(opts);
-  const input: ScanInput = { kind: 'aws', accounts: scan.accounts, regions: scan.regions, not_checked: scan.not_checked };
+  const input: ScanInput = { kind: 'aws', accounts: scan.accounts, regions: scan.regions, not_checked: scan.not_checked, status: scan.status, coverage: scan.coverage };
   return { report: await assemble(rules, input, scan.resources), scan };
 }

@@ -22,7 +22,7 @@ const scan = async (rule: (typeof rules)[number], name: string, contents: string
 
 function gitApply(dir: string, patch: string, check: boolean) {
   writeFileSync(join(dir, 'x.patch'), patch);
-  return spawnSync('git', ['apply', ...(check ? ['--check'] : []), 'x.patch'], { cwd: dir, encoding: 'utf8' });
+  return spawnSync('git', ['apply', '--unidiff-zero', ...(check ? ['--check'] : []), 'x.patch'], { cwd: dir, encoding: 'utf8' });
 }
 
 for (const rule of rules) {
@@ -42,7 +42,7 @@ for (const rule of rules) {
       writeFileSync(join(dir, 'fail.tf'), contents);
       for (const p of patches) {
         assert.match(p.diff, /^# .*\n(# .*\n)*--- a\/fail\.tf\n\+\+\+ b\/fail\.tf\n@@ /);
-        assert.ok(p.diff.includes('# EdgePQ does not apply patches. Review, then apply with: git apply <file>'));
+        assert.ok(p.diff.includes('# EdgePQ does not apply patches. Review, then apply with: git apply --unidiff-zero <file>'));
         const check = gitApply(dir, p.diff, true);
         assert.equal(check.status, 0, check.stderr);
       }

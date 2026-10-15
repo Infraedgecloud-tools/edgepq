@@ -25,7 +25,7 @@ export type HelloOutcome = {
   error?: string;
 };
 
-export type Verdict = 'hybrid_selected' | 'hybrid_supported_not_preferred' | 'classical_only' | 'tls_1_2_only' | 'inconclusive';
+export type Verdict = 'hybrid_selected' | 'hybrid_supported_not_preferred' | 'hybrid_supported_preference_unknown' | 'classical_only' | 'tls_1_2_only' | 'inconclusive';
 
 export type ProbeResult = {
   target: { host: string; port: number; servername: string };
@@ -58,12 +58,15 @@ function exchange(host: string, port: number, hello: Buffer, timeoutMs: number):
     const finish = (result: HelloOutcome) => {
       if (done) return;
       done = true;
+      clearTimeout(deadline);
       socket.destroy();
       resolve({ connected, result });
     };
+    const deadline = setTimeout(() => finish({ outcome: 'timeout', error: `no ServerHello within ${timeoutMs} ms` }), timeoutMs);
     socket.setTimeout(timeoutMs, () => finish({ outcome: 'timeout', error: `no ServerHello within ${timeoutMs} ms` }));
     socket.once('connect', () => { connected = true; socket.write(hello); });
     socket.on('data', (chunk: Buffer) => {
+      if (received.length + chunk.length > 65536) { finish({ outcome: 'error', error: 'ServerHello flight exceeded 65536 byte limit' }); return; }
       received = Buffer.concat([received, chunk]);
       const parsed = parseServerFlight(received);
       if (parsed.state === 'complete') finish(describe(parsed.flight));
@@ -75,7 +78,7 @@ function exchange(host: string, port: number, hello: Buffer, timeoutMs: number):
 }
 
 /* Errors that say nothing about the server's choice of group. */
-export const isTransient = (error?: string): boolean => error !== undefined && /no handshake within|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|connection closed during handshake/.test(error);
+export const isTransient = (error?: string): boolean => error !== undefined && /no handshake within|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|ECONNRESET|connection reset|EHOSTUNREACH|ENETUNREACH|connection closed during handshake/.test(error);
 
 const speaks13 = (o: HelloOutcome) => (o.outcome === 'server_hello' || o.outcome === 'hello_retry_request') && o.tls_version === '1.3';
 const hybridNamed = (o: HelloOutcome) => o.group !== undefined && isHybrid(o.group.code);
@@ -125,7 +128,10 @@ export function decide(browser: HelloOutcome, hybridOnly: HelloOutcome, handshak
     if (hybridDone.length > 0) {
       if (hybridOnly.outcome === 'alert') notes.push(`Disagreement: the hybrid-only raw hello drew an alert (${hybridOnly.alert?.name}), but Node completed ${list(hybridDone)} with a real key; the server may validate key shares before choosing a group.`);
       if (rawHybrid) return { verdict: 'hybrid_selected', notes };
-      if (!speaks13(browser) || hybridNamed(browser)) notes.push(`Node completed ${list(hybridDone)} with a real key, but the raw hello ended in ${browser.outcome}${browser.tls_version ? ` (TLS ${browser.tls_version})` : ''}${browser.error ? ` (${browser.error})` : ''}, so what the server prefers when offered a browser-like list was not observed.`);
+      if (browser.outcome !== 'server_hello' || !speaks13(browser) || hybridNamed(browser)) {
+        notes.push(`Node completed ${list(hybridDone)} with a real key, but the raw hello ended in ${browser.outcome}${browser.tls_version ? ` (TLS ${browser.tls_version})` : ''}${browser.error ? ` (${browser.error})` : ''}, so what the server prefers when offered a browser-like list was not observed.`);
+        return { verdict: 'hybrid_supported_preference_unknown', notes };
+      }
       return { verdict: 'hybrid_supported_not_preferred', notes };
     }
     if (rawHybrid) {
@@ -138,8 +144,8 @@ export function decide(browser: HelloOutcome, hybridOnly: HelloOutcome, handshak
     }
     /* A handshake that timed out or lost its connection was not refused.
        Calling that classical_only would turn a flaky network into a finding. */
-    if (testable.every((h) => isTransient(h.error))) {
-      notes.push(`Inconclusive: no hybrid handshake completed, but none was refused either (${testable.map((h) => `${h.group}: ${h.error ?? 'no detail'}`).join('; ')}); try again.`);
+    if (testable.some((h) => isTransient(h.error))) {
+      notes.push(`Inconclusive: no hybrid handshake completed, at least one group was not conclusively refused (${testable.map((h) => `${h.group}: ${h.error ?? 'no detail'}`).join('; ')}); try again.`);
       return { verdict: 'inconclusive', notes };
     }
     if (speaks13(browser)) return { verdict: 'classical_only', notes };
@@ -148,16 +154,9 @@ export function decide(browser: HelloOutcome, hybridOnly: HelloOutcome, handshak
     return { verdict: 'inconclusive', notes };
   }
 
-  notes.push('No hybrid handshake could be run on this Node (OpenSSL 3.5 or later is needed), so the verdict rests on the hand-built hellos alone; their ML-KEM share is a placeholder.');
-  if (rawHybrid) return { verdict: 'hybrid_selected', notes };
-  if (hybridOnly.outcome === 'alert') {
-    notes.push('Inconclusive: the hybrid-only offer drew an alert, which may mean the server rejected the placeholder share rather than the groups.');
-    return { verdict: 'inconclusive', notes };
-  }
-  if (speaks13(browser) && hybridNamed(hybridOnly)) return { verdict: 'hybrid_supported_not_preferred', notes };
-  if (speaks13(browser) && (hybridOnly.outcome === 'server_hello' || hybridOnly.outcome === 'hello_retry_request')) return { verdict: 'classical_only', notes };
+  notes.push('No hybrid handshake could be run on this Node. The hand-built hellos use placeholder ML-KEM shares; selections and retry requests alone do not prove a completed hybrid session.');
   if (browser.outcome === 'server_hello' && browser.tls_version === '1.2') return { verdict: 'tls_1_2_only', notes };
-  notes.push(`Inconclusive: browser-like offer ended in ${browser.outcome}${browser.error ? ` (${browser.error})` : ''}; hybrid-only offer ended in ${hybridOnly.outcome}${hybridOnly.error ? ` (${hybridOnly.error})` : ''}.`);
+  if (hybridOnly.outcome === 'alert') notes.push('The server may have rejected the placeholder share rather than the groups.');
   return { verdict: 'inconclusive', notes };
 }
 
@@ -166,7 +165,9 @@ export async function probe(
   opts: { timeoutMs?: number } = {},
 ): Promise<ProbeResult> {
   const timeoutMs = opts.timeoutMs ?? 5000;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new Error('timeout must be between 1 and 60000 milliseconds');
   const port = target.port ?? 443;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('port must be between 1 and 65535');
   const servername = target.servername ?? target.host;
   const probedAt = new Date().toISOString();
 
@@ -205,6 +206,6 @@ export async function probe(
     hybrid_only_offer: hybridOnly.result,
     handshakes,
     verdict,
-    evidence_notes: [...browser.notes, ...notes],
+    evidence_notes: [...browser.notes, ...notes, 'Group selection and completed key exchange are separate from certificate authentication. See each handshake authenticated and authentication_error field. PQ key exchange does not establish PQ certificate signatures.'],
   };
 }

@@ -1,3 +1,6 @@
 node_modules/
 dist/
 out/
+
+# Runtime reports contain identifiers and belong outside source control.
+edgepq-out/

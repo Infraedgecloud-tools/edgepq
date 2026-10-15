@@ -144,6 +144,49 @@
               "items": {
                 "$ref": "#/$defs/notChecked"
               }
+            },
+            "status": {
+              "enum": [
+                "complete",
+                "partial",
+                "failed"
+              ]
+            },
+            "coverage": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "account",
+                  "region",
+                  "service",
+                  "status",
+                  "resources"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "service": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "complete",
+                      "failed",
+                      "excluded"
+                    ]
+                  },
+                  "resources": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
             }
           }
         }

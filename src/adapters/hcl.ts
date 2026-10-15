@@ -43,6 +43,7 @@ export type HclScan = {
   notes: CoverageNote[];
   modules: ModuleCall[];
   variables: Record<string, AttrValue | undefined>;
+  sensitiveVariables?: string[];
   locals: Record<string, AttrValue>;
 };
 
@@ -102,7 +103,9 @@ export function resourcesFromHclJson(json: unknown, file: string, ctx: ScanConte
   if (isObj(variableMap)) {
     for (const [name, bodies] of Object.entries(variableMap)) {
       const body = Array.isArray(bodies) ? bodies[0] : bodies;
-      scan.variables[name] = isObj(body) && 'default' in body ? (body.default as AttrValue) : undefined;
+      const sensitive = isObj(body) && 'sensitive' in body && body.sensitive !== false;
+      if (sensitive) (scan.sensitiveVariables ??= []).push(name);
+      scan.variables[name] = !sensitive && isObj(body) && 'default' in body ? (body.default as AttrValue) : undefined;
     }
   }
   const localsList = json.locals;
@@ -159,6 +162,7 @@ export function bindReferences(scan: HclScan, inputs: Record<string, AttrValue>)
       const v = VAR_REF.exec(value);
       if (v) {
         const name = v[1] as string;
+        if (scan.sensitiveVariables?.includes(name)) return value;
         if (name in inputs && isLiteral(inputs[name])) return inputs[name];
         const def = scan.variables[name];
         if (isLiteral(def)) {
@@ -199,7 +203,7 @@ export async function scanHclFiles(files: { name: string; contents: string }[], 
     try {
       json = await parse(f.name, f.contents);
     } catch (e) {
-      out.notes.push({ kind: 'parse-error', file: f.name, message: (e as Error).message });
+      out.notes.push({ kind: 'parse-error', file: f.name, message: 'invalid Terraform source (parser details omitted)'  });
       continue;
     }
     const scan = resourcesFromHclJson(json, f.name, ctx);
@@ -207,6 +211,7 @@ export async function scanHclFiles(files: { name: string; contents: string }[], 
     out.notes.push(...scan.notes);
     out.modules.push(...scan.modules);
     Object.assign(out.variables, scan.variables);
+    out.sensitiveVariables = [...new Set([...(out.sensitiveVariables ?? []), ...(scan.sensitiveVariables ?? [])])];
     Object.assign(out.locals, scan.locals);
   }
   bindReferences(out, ctx.inputs ?? {});

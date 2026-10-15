@@ -1,3 +1,4 @@
+import { checkedPages } from '../bounds.ts';
 import { CloudFrontClient, paginateListDistributions } from '@aws-sdk/client-cloudfront';
 import type { Collector } from '../types.ts';
 import { clientConfig, resource } from './helpers.ts';
@@ -12,7 +13,7 @@ export const cloudfront: Collector = {
   async run(ctx) {
     const client = new CloudFrontClient(clientConfig(ctx, 'us-east-1'));
     const resources = [];
-    for await (const page of paginateListDistributions({ client }, {})) {
+    for await (const page of checkedPages(paginateListDistributions({ client, stopOnSameToken: true }, {}, ctx.signal ? { abortSignal: ctx.signal } : {}), ctx.signal)) {
       for (const d of page.DistributionList?.Items ?? []) {
         if (!d.ARN) continue;
         const vc = d.ViewerCertificate ?? {};

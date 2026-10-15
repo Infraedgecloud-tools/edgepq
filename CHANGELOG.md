@@ -4,6 +4,14 @@ All notable changes to EdgePQ. The format follows [Keep a Changelog](https://kee
 and the project uses [Semantic Versioning](https://semver.org/). Rule IDs never change
 meaning; a rule that needs different semantics gets a new ID.
 
+## Unreleased
+
+- Discover enabled regions per AWS account; report actual collection scopes and complete/partial/failed status. Default strict coverage fails incomplete scans; explicit advisory mode permits partial coverage only.
+- Stage and replace owned outputs so rescans cannot leave stale patches. Refuse unowned output contents, symlinks and collisions; document interruption recovery.
+- Bound TLS deadlines and server-flight bytes, retain uncertainty for placeholder shares and mixed transient failures, and report certificate authentication separately from key exchange.
+- Reject incomplete/malformed Terraform JSON, unknown actions and unsupported major formats; bound local input size, count and depth.
+- Correct installation claims: the v0.1.0 GitHub tarball is available; named npm registry publication is unverified/unavailable in the release inspection environment.
+
 ## [Unreleased]
 
 ### Added

@@ -46,3 +46,34 @@ test('a state document walks child modules', () => {
 test('something else is unrecognised', () => {
   assert.equal(resourcesFromTerraformJson({ hello: 1 }).kind, 'unrecognised');
 });
+
+
+test('incomplete, errored, future major and malformed documents fail explicitly', () => {
+  for (const doc of [
+    { format_version: '2.0', resource_changes: [] },
+    { format_version: '1.2', complete: false, resource_changes: [] },
+    { format_version: '1.2', errored: true, resource_changes: [] },
+    { format_version: '1.2', resource_changes: {} },
+    { format_version: '1.2', resource_changes: [{ address: 'aws_kms_key.k', type: 'aws_kms_key', mode: 'managed', change: { actions: ['future-action'], after: {} } }] },
+    { format_version: '1.2', resource_changes: [{ address: 'aws_kms_key.k', type: 'aws_kms_key', mode: 'managed', change: { actions: ['update'] } }] },
+    { format_version: '1.0', values: { root_module: { resources: [{}] } } },
+  ]) assert.throws(() => resourcesFromTerraformJson(doc));
+  const noOp = resourcesFromTerraformJson({ format_version: '1.99', applyable: false, complete: true, resource_changes: [] });
+  assert.equal(noOp.kind, 'plan');
+  assert.equal(noOp.resources.length, 0);
+});
+
+test('whole-resource unknown values cannot take configured defaults', () => {
+  const result = resourcesFromTerraformJson({ format_version: '1.2', resource_changes: [{ address: 'aws_lb_listener.x', type: 'aws_lb_listener', mode: 'managed', change: { actions: ['create'], after: {}, after_unknown: true } }] });
+  assert.equal(lookup(result.resources[0]!, 'ssl_policy').unknown, true);
+});
+
+
+test('invalid actions, mask values and unsupported providers cannot pass', () => {
+  const resource = { address: 'aws_lb_listener.x', type: 'aws_lb_listener', mode: 'managed', change: { actions: ['create'], after: { protocol: 'HTTPS' } } };
+  assert.throws(() => resourcesFromTerraformJson({ resource_changes: [resource] }), /format_version/);
+  for (const actions of [['create', 'update'], ['delete', 'delete'], [['create']], ['delete,create']]) assert.throws(() => resourcesFromTerraformJson({ format_version: '1.2', resource_changes: [{ ...resource, change: { ...resource.change, actions } }] }), /actions/);
+  assert.throws(() => resourcesFromTerraformJson({ format_version: '1.2', resource_changes: [{ ...resource, provider_name: 'not.aws/provider' }] }), /provider/);
+  for (const mask of ['true', { child: true }]) assert.throws(() => resourcesFromTerraformJson({ format_version: '1.2', resource_changes: [{ ...resource, change: { ...resource.change, after_unknown: { ssl_policy: mask } } }] }), /mask/);
+  assert.throws(() => resourcesFromTerraformJson({ format_version: '1.0', values: { root_module: { resources: [{ ...resource, provider_name: 'wrong/provider', values: {} }] } } }), /provider/);
+});

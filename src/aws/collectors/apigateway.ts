@@ -1,3 +1,4 @@
+import { checkedPages } from '../bounds.ts';
 import { APIGatewayClient, paginateGetDomainNames, paginateGetRestApis } from '@aws-sdk/client-api-gateway';
 import { ApiGatewayV2Client, GetDomainNamesCommand } from '@aws-sdk/client-apigatewayv2';
 import type { Collector } from '../types.ts';
@@ -12,7 +13,7 @@ export const apigateway: Collector = {
     const client = new APIGatewayClient(clientConfig(ctx));
     const resources = [];
     const region = ctx.scope.region;
-    for await (const page of paginateGetDomainNames({ client }, {})) {
+    for await (const page of checkedPages(paginateGetDomainNames({ client, stopOnSameToken: true }, {}, ctx.signal ? { abortSignal: ctx.signal } : {}), ctx.signal)) {
       for (const d of page.items ?? []) {
         if (!d.domainName) continue;
         const arn = d.domainNameArn ?? `arn:aws:apigateway:${region}::/domainnames/${d.domainName}`;
@@ -26,7 +27,7 @@ export const apigateway: Collector = {
         }));
       }
     }
-    for await (const page of paginateGetRestApis({ client }, {})) {
+    for await (const page of checkedPages(paginateGetRestApis({ client, stopOnSameToken: true }, {}, ctx.signal ? { abortSignal: ctx.signal } : {}), ctx.signal)) {
       for (const a of page.items ?? []) {
         if (!a.id) continue;
         resources.push(resource(ctx, 'aws_api_gateway_rest_api', `arn:aws:apigateway:${region}::/restapis/${a.id}`, {
@@ -48,8 +49,12 @@ export const apigatewayv2: Collector = {
     const client = new ApiGatewayV2Client(clientConfig(ctx));
     const resources = [];
     let next: string | undefined;
+    const tokens = new Set<string>();
+    let pages = 0;
     do {
-      const page = await client.send(new GetDomainNamesCommand(next ? { NextToken: next } : {}));
+      ctx.signal?.throwIfAborted();
+      if (++pages > 1000) throw new Error('AWS pagination exceeded 1000 pages');
+      const page = await client.send(new GetDomainNamesCommand(next ? { NextToken: next } : {}), ctx.signal ? { abortSignal: ctx.signal } : {});
       for (const d of page.Items ?? []) {
         if (!d.DomainName) continue;
         const cfg = d.DomainNameConfigurations?.[0];
@@ -62,6 +67,8 @@ export const apigatewayv2: Collector = {
         }));
       }
       next = page.NextToken;
+      if (next && tokens.has(next)) throw new Error('AWS pagination repeated a continuation token');
+      if (next) tokens.add(next);
     } while (next);
     return { resources };
   },

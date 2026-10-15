@@ -1,3 +1,4 @@
+import { checkedPages } from '../bounds.ts';
 import { KMSClient, DescribeKeyCommand, paginateListKeys } from '@aws-sdk/client-kms';
 import type { Collector } from '../types.ts';
 import { clientConfig, resource } from './helpers.ts';
@@ -12,10 +13,10 @@ export const kms: Collector = {
     const resources = [];
     let awsManaged = 0;
     let pendingDeletion = 0;
-    for await (const page of paginateListKeys({ client }, {})) {
+    for await (const page of checkedPages(paginateListKeys({ client, stopOnSameToken: true }, {}, ctx.signal ? { abortSignal: ctx.signal } : {}), ctx.signal)) {
       for (const k of page.Keys ?? []) {
         if (!k.KeyId) continue;
-        const meta = (await client.send(new DescribeKeyCommand({ KeyId: k.KeyId }))).KeyMetadata;
+        const meta = (await client.send(new DescribeKeyCommand({ KeyId: k.KeyId }), ctx.signal ? { abortSignal: ctx.signal } : {})).KeyMetadata;
         if (!meta?.Arn) continue;
         if (meta.KeyManager === 'AWS') { awsManaged += 1; continue; }
         if (meta.KeyState === 'PendingDeletion' || meta.KeyState === 'PendingReplicaDeletion') { pendingDeletion += 1; continue; }
