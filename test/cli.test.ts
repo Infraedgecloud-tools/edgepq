@@ -10,11 +10,11 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const bin = join(root, 'bin/edgepq.js');
+const bin = process.env.EDGEPQ_BIN ?? join(root, 'bin/edgepq.js');
 
 function run(args: string[], cwd = root): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [bin, ...args], { cwd });
+    const child = spawn(process.env.EDGEPQ_NODE ?? process.execPath, [bin, ...args], { cwd });
     let stdout = '', stderr = '';
     child.stdout.on('data', (d) => { stdout += d; });
     child.stderr.on('data', (d) => { stderr += d; });
@@ -30,7 +30,7 @@ test('scan a Terraform directory: all five outputs plus patches, exit 0, exit 1 
   assert.match(r.stdout, /high\s+ELB-KX-001\s+aws_lb_listener\.defaulted\n\s+ssl_policy: ELBSecurityPolicy-2016-08 \(default\) → ELBSecurityPolicy-TLS13-1-0-PQ-2025-09/);
   assert.match(r.stdout, /patches: 3 written, never applied/);
   const names = (await readdir(out)).sort();
-  assert.deepEqual(names, ['edgepq-cbom.cdx.json', 'edgepq-findings.json', 'edgepq-findings.sarif', 'edgepq-report.html', 'edgepq-report.md', 'patches']);
+  assert.deepEqual(names, ['.edgepq-output.json', 'edgepq-cbom.cdx.json', 'edgepq-findings.json', 'edgepq-findings.sarif', 'edgepq-report.html', 'edgepq-report.md', 'patches']);
   /* SARIF paths are relative to the working directory and point at the resource block. */
   const sarif = JSON.parse(await readFile(join(out, 'edgepq-findings.sarif'), 'utf8')) as { runs: { results: { ruleId: string; locations: { physicalLocation: { artifactLocation: { uri: string }; region?: { startLine: number } } }[]; properties: { address: string } }[] }[] };
   const defaulted = sarif.runs[0]!.results.find((r) => r.properties.address === 'aws_lb_listener.defaulted')!;
@@ -123,4 +123,24 @@ test('verify against nothing listening is inconclusive and exits 2, not a crash'
   assert.equal(result.verdict, 'inconclusive');
   assert.equal(result.reachable, false);
   assert.deepEqual(result.target, { host: '127.0.0.1', port: 1, servername: '127.0.0.1' });
+});
+
+
+
+test('CLI fail-to-pass rescan removes old patches; unowned output is preserved', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'edgepq-cli-rescan-'));
+  const source = join(dir, 'main.tf');
+  const out = join(dir, 'output');
+  await writeFile(source, 'resource "aws_lb_listener" "x" {\n protocol = "HTTPS"\n ssl_policy = "ELBSecurityPolicy-2016-08"\n}\n');
+  const first = await run(['scan', dir, '--out', out, '--fail-on', 'high']);
+  assert.equal(first.code, 1, first.stdout + first.stderr);
+  assert.ok((await readdir(join(out, 'patches'))).includes('edgepq-auto.patch'));
+  await writeFile(source, 'resource "aws_lb_listener" "x" {\n protocol = "HTTPS"\n ssl_policy = "ELBSecurityPolicy-TLS13-1-0-PQ-2025-09"\n}\n');
+  const second = await run(['scan', dir, '--out', out, '--fail-on', 'high']);
+  assert.equal(second.code, 0, second.stdout + second.stderr);
+  await assert.rejects(stat(join(out, 'patches')));
+  await writeFile(join(out, 'my-notes'), 'keep');
+  const collided = await run(['scan', dir, '--out', out]);
+  assert.equal(collided.code, 2);
+  assert.equal(await readFile(join(out, 'my-notes'), 'utf8'), 'keep');
 });

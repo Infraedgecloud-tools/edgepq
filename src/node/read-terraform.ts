@@ -7,7 +7,7 @@
    of its own, with its path as the address prefix ("modules/alb:"), so a
    repository of modules can be scanned and two resources with the same name
    in two directories never share an address. Nothing is read twice. */
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat, lstat } from 'node:fs/promises';
 import { dirname, join, normalize, relative, resolve, sep } from 'node:path';
 import type { AttrValue } from '../engine/types.ts';
 import { scanHclFiles, type CoverageNote, type HclScan } from '../adapters/hcl.ts';
@@ -22,20 +22,32 @@ export type TerraformInput = { kind: 'hcl'; scan: HclScan; files: string[] } | {
 const isLocalSource = (s: string) => s.startsWith('./') || s.startsWith('../') || s === '.' || s === '..';
 
 export async function readTerraform(target: string): Promise<TerraformInput> {
+  if ((await lstat(target)).isSymbolicLink()) throw new Error('Terraform input must not be a symlink');
   const s = await stat(target);
+  let totalBytes = 0;
+  const readBounded = async (path: string): Promise<string> => {
+    const size = (await lstat(path)).size;
+    totalBytes += size;
+    if (size > 16 * 1024 * 1024 || totalBytes > 64 * 1024 * 1024) throw new Error('Terraform input exceeds 16 MiB per-file or 64 MiB total limit');
+    return readFile(path, 'utf8');
+  };
   if (s.isFile()) {
-    const doc: unknown = JSON.parse(await readFile(target, 'utf8'));
+    const doc: unknown = JSON.parse(await readBounded(target));
     return { kind: 'json', scan: resourcesFromTerraformJson(doc), file: target };
   }
 
   /* Every *.tf under the target, grouped by the directory they are in. */
   const byDir = new Map<string, string[]>();
-  const walk = async (dir: string) => {
+  let fileCount = 0;
+  const walk = async (dir: string, depth = 0) => {
+    if (depth > 64) throw new Error('Terraform directory depth exceeds 64');
     for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.isDirectory()) {
         if (entry.name === '.terraform' || entry.name === '.git' || entry.name === 'node_modules') continue;
-        await walk(join(dir, entry.name));
+        await walk(join(dir, entry.name), depth + 1);
       } else if (entry.name.endsWith('.tf') || entry.name.endsWith('.tf.json')) {
+        if (entry.isSymbolicLink() || !entry.isFile()) throw new Error('Terraform source must be a regular file, not a symlink');
+        if (++fileCount > 10000) throw new Error('Terraform source file count exceeds 10000');
         const list = byDir.get(dir) ?? [];
         list.push(join(dir, entry.name));
         byDir.set(dir, list);
@@ -54,7 +66,7 @@ export async function readTerraform(target: string): Promise<TerraformInput> {
   const readModule = async (dir: string, prefix: string, inputs: Record<string, AttrValue>, chain: string[]): Promise<void> => {
     covered.add(dir);
     const names = (byDir.get(dir) ?? []).slice().sort();
-    const contents = await Promise.all(names.map(async (n) => ({ name: rel(n) || n, contents: await readFile(n, 'utf8') })));
+    const contents = await Promise.all(names.map(async (n) => ({ name: rel(n) || n, contents: await readBounded(n) })));
     files.push(...contents.map((f) => f.name));
     const scan = await scanHclFiles(contents, parseAny, { prefix, inputs });
     out.resources.push(...scan.resources);

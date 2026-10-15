@@ -57,3 +57,65 @@ test('a region discovery failure is recorded, not fatal', async () => {
   const scan = await scanAws({}, d);
   assert.deepEqual(scan.not_checked, [{ account: '111111111111', region: '*', service: 'ec2:DescribeRegions', reason: 'Error: ec2 denied' }]);
 });
+
+
+test('discovers enabled regions independently for each account', async () => {
+  const d = deps();
+  let discoveries = 0;
+  d.enabledRegions = async (credentials) => {
+    discoveries++;
+    return credentials ? ['ap-east-1', 'eu-west-2'] : ['eu-west-2'];
+  };
+  const scan = await scanAws({ organization: true, roleName: 'r' }, d);
+  assert.equal(discoveries, 2);
+  assert.deepEqual(scan.resources.map((r) => r.address), ['111111111111:eu-west-2', '222222222222:ap-east-1', '222222222222:eu-west-2']);
+  assert.deepEqual(scan.regions, ['ap-east-1', 'eu-west-2']);
+  assert.equal(scan.status, 'partial');
+  assert.ok(scan.coverage.some((c) => c.account === '222222222222' && c.region === 'ap-east-1' && c.service === 'ok' && c.status === 'complete'));
+});
+
+test('complete empty enumeration differs from zero usable collection', async () => {
+  const d = deps();
+  d.collectors = [{ service: 'empty', run: async () => ({ resources: [] }) }];
+  const empty = await scanAws({}, d);
+  assert.equal(empty.resources.length, 0);
+  assert.equal(empty.status, 'complete');
+  assert.equal(empty.coverage.length, 2);
+  d.collectors = [boom];
+  assert.equal((await scanAws({}, d)).status, 'failed');
+  d.enabledRegions = async () => [];
+  assert.equal((await scanAws({}, d)).status, 'failed');
+});
+
+test('unsupported partitions fail explicitly before collection', async () => {
+  const d = deps();
+  d.callerIdentity = async () => ({ account: '111111111111', arn: 'arn:aws-us-gov:iam::111111111111:user/me' });
+  await assert.rejects(scanAws({}, d), /commercial aws partition/);
+});
+
+test('total run deadline aborts work and records remaining coverage without starting it', async () => {
+  const d = deps();
+  let calls = 0;
+  d.collectors = [{ service: 'slow', run: async (ctx) => {
+    calls++;
+    await new Promise<void>((_, reject) => {
+      ctx.signal!.addEventListener('abort', () => reject(ctx.signal!.reason), { once: true });
+    });
+    return { resources: [] };
+  } }];
+  const started = Date.now();
+  const result = await scanAws({ timeoutMs: 30 }, d);
+  assert.equal(result.status, 'failed');
+  assert.equal(calls, 1);
+  assert.equal(result.not_checked.length, 2);
+  assert.ok(Date.now() - started < 1000);
+});
+
+test('explicit cancellation and excessive scopes fail before collection', async () => {
+  const d = deps();
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(scanAws({ signal: controller.signal }, d), /abort/i);
+  await assert.rejects(scanAws({ accounts: Array.from({ length: 101 }, (_, i) => String(100000000000 + i)) }, d), /100/);
+  await assert.rejects(scanAws({ regions: [] }, d), /valid regions/);
+});

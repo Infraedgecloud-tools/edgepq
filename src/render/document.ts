@@ -59,6 +59,8 @@ function inputItems(input: ScanInput): { label: string; items: string[] }[] {
   }
   if (input.kind === 'aws') {
     return [
+      { label: 'Collection status', items: [input.status ?? 'unknown (legacy report)'] },
+      { label: 'Collection scopes', items: (input.coverage ?? []).map((c) => `${c.account} ${c.region} ${c.service}: ${c.status}, ${c.resources} resource(s)`) },
       { label: 'Accounts', items: input.accounts }, { label: 'Regions', items: input.regions },
       { label: 'Not checked', items: input.not_checked.map((n) => `${n.account} ${n.region} ${n.service}: ${n.reason}`) },
     ];

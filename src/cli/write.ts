@@ -1,6 +1,9 @@
 /* Write every output of a scan into one directory. Returns what was written
    so the console summary and the tests can say so. */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, mkdtemp, rename, readdir, lstat, unlink, rmdir, rm, open }
+from 'node:fs/promises';
+import { resolve, dirname, basename, sep } from 'node:path';
+
 import { join, relative } from 'node:path';
 import { renderJson } from '../render/json.ts';
 import { renderMarkdown } from '../render/markdown.ts';
@@ -26,7 +29,7 @@ export const OUTPUT_NAMES = {
   allPatch: 'edgepq-all.patch',
 };
 
-export async function writeOutputs(report: ScanReport, outDir: string, source?: { target: string; input: TerraformInput }): Promise<Written> {
+async function writeRun(report: ScanReport, outDir: string, source?: { target: string; input: TerraformInput }): Promise<Written> {
   await mkdir(outDir, { recursive: true });
   const files: string[] = [];
   const put = async (name: string, contents: string) => {
@@ -63,6 +66,7 @@ export async function writeOutputs(report: ScanReport, outDir: string, source?: 
   if (patches.length <= PER_FIX_LIMIT) {
     for (const p of patches) {
       const name = `${OUTPUT_NAMES.patchesDir}/${p.ruleId}-${p.address.replace(/[^A-Za-z0-9_.-]+/g, '_')}.patch`;
+      if (files.includes(name)) throw new Error(`patch filename collision: ${name}`);
       await put(name, p.diff);
     }
   } else {
@@ -73,6 +77,87 @@ export async function writeOutputs(report: ScanReport, outDir: string, source?: 
   const all = combinePatches(patches, { safety: 'all' });
   if (all.included.length) await put(`${OUTPUT_NAMES.patchesDir}/${OUTPUT_NAMES.allPatch}`, all.diff);
   return written;
+}
+
+
+const MANIFEST = '.edgepq-output.json';
+
+/* A complete output directory belongs to one run. Stage beside it, then swap
+   directories. Refuse to adopt nonempty unowned directories, symlinks, or user
+   additions. No arbitrary output directory is ever recursively removed. */
+export async function writeOutputs(report: ScanReport, outDir: string, source?: { target: string; input: TerraformInput }): Promise<Written> {
+  const destination = resolve(outDir);
+  if (source) {
+    const input = resolve(source.target);
+    if (input === destination || input.startsWith(destination + sep)) throw new Error('output directory would replace the input');
+  }
+  const parent = dirname(destination);
+  await mkdir(parent, { recursive: true });
+  // Reject symlink components rather than following an output into another tree.
+  for (let path = parent;; path = dirname(path)) {
+    if ((await lstat(path)).isSymbolicLink()) throw new Error('output path contains a symlink');
+    if (dirname(path) === path) break;
+  }
+  const lockPath = destination + '.edgepq-lock';
+  const lock = await open(lockPath, 'wx');
+  let stage: string | undefined;
+  let backup: string | undefined;
+  try {
+    let owned: string[] = [];
+    let exists = false;
+    try {
+      const st = await lstat(destination);
+      exists = true;
+      if (!st.isDirectory() || st.isSymbolicLink()) throw new Error('output path must be a real directory');
+      const actual = await listFiles(destination);
+      if (actual.length) {
+        let manifest: unknown;
+        try { manifest = JSON.parse(await readFile(join(destination, MANIFEST), 'utf8')); }
+        catch { throw new Error('nonempty output directory is not owned by EdgePQ; select a new empty directory'); }
+        if (!manifest || typeof manifest !== 'object' || !('version' in manifest) || manifest.version !== 1 || !('files' in manifest) || !Array.isArray(manifest.files)) throw new Error('invalid EdgePQ output manifest');
+        owned = manifest.files as string[];
+        if (owned.some((f) => typeof f !== 'string' || !/^(edgepq-[A-Za-z0-9.-]+|patches\/[A-Za-z0-9_.-]+\.patch)$/.test(f))) throw new Error('invalid owned output path');
+        if (JSON.stringify([...actual].sort()) !== JSON.stringify([...owned, MANIFEST].sort())) throw new Error('output directory contains unowned or missing files; select a new empty directory');
+      }
+    } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    stage = await mkdtemp(join(parent, '.' + basename(destination) + '-run-'));
+    const written = await writeRun(report, stage, source);
+    await writeFile(join(stage, MANIFEST), JSON.stringify({ version: 1, files: written.files }) + '\n', { flag: 'wx' });
+    if (exists) {
+      backup = stage + '-previous';
+      await rename(destination, backup);
+    }
+    try { await rename(stage, destination); stage = undefined; }
+    catch (e) { if (backup) { await rename(backup, destination); backup = undefined; } throw e; }
+    if (backup) {
+      // Delete only the exact files verified above; user-selected trees are never rm -rf'd.
+      for (const file of [...owned, ...(owned.length ? [MANIFEST] : [])]) await unlink(join(backup, file));
+      if (owned.some((f) => f.startsWith('patches/'))) await rmdir(join(backup, 'patches'));
+      await rmdir(backup);
+      backup = undefined;
+    }
+    return written;
+  } finally {
+    if (stage) await rm(stage, { recursive: true, force: true }); // only our mkdtemp directory
+    await lock.close();
+    await unlink(lockPath);
+  }
+}
+
+async function listFiles(dir: string, prefix = ''): Promise<string[]> {
+  const result: string[] = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const name = prefix + entry.name;
+    if (entry.isSymbolicLink()) throw new Error('output directory contains a symlink');
+    if (entry.isDirectory()) {
+      if (name !== 'patches') throw new Error('output directory contains an unowned directory');
+      const nested = await listFiles(join(dir, entry.name), name + '/');
+      if (!nested.length) throw new Error('output directory contains an unowned empty directory');
+      result.push(...nested);
+    } else if (entry.isFile()) result.push(name);
+    else throw new Error('output directory contains a special file');
+  }
+  return result;
 }
 
 

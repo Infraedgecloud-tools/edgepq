@@ -16,7 +16,7 @@ export type Scope = { account: string; region: string };
 
 export type NotChecked = { account: string; region: string; service: string; reason: string };
 
-export type Collected = { resources: Resource[]; notes?: string[] };
+export type Collected = { resources: Resource[]; notes?: string[]; excluded?: true };
 
 /* A collector sees one account in one region, through credentials for that
    account. Global services (CloudFront) run once per account in us-east-1. */
@@ -30,6 +30,7 @@ export type CollectorContext = {
   scope: Scope;
   credentials: CredentialProvider | undefined;   /* undefined = default provider chain */
   cloudTrailSample: number;
+  signal?: AbortSignal;
 };
 
 export type AwsScanOptions = {
@@ -39,6 +40,8 @@ export type AwsScanOptions = {
   roleName?: string;              /* assumed as arn:aws:iam::<account>:role/<roleName> in every account but the caller's own */
   externalId?: string;
   cloudTrailSample?: number;      /* events per service per region, default 200; 0 disables */
+  timeoutMs?: number;             /* total run budget, default 120000, maximum 3600000 */
+  signal?: AbortSignal;
   log?: (line: string) => void;
 };
 
@@ -46,6 +49,9 @@ export type AwsScan = {
   caller: { account: string; arn: string };
   accounts: string[];
   regions: string[];
+  /** Successfully enumerated empty scopes count as complete collection. */
+  status: 'complete' | 'partial' | 'failed';
+  coverage: { account: string; region: string; service: string; status: 'complete' | 'failed' | 'excluded'; resources: number }[];
   resources: Resource[];
   not_checked: NotChecked[];
   notes: string[];

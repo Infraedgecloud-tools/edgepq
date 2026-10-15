@@ -1,3 +1,4 @@
+import { checkedPages } from '../bounds.ts';
 import { CloudTrailClient, paginateLookupEvents } from '@aws-sdk/client-cloudtrail';
 import type { Collector, CollectorContext } from '../types.ts';
 import { clientConfig, resource } from './helpers.ts';
@@ -36,12 +37,12 @@ export function summarise(events: string[]): Sample {
 export const cloudtrail: Collector = {
   service: 'cloudtrail',
   async run(ctx: CollectorContext) {
-    if (ctx.cloudTrailSample <= 0) return { resources: [], notes: ['cloudtrail: client sample disabled'] };
+    if (ctx.cloudTrailSample <= 0) return { resources: [], excluded: true, notes: ['cloudtrail: client sample disabled; excluded from completed collection coverage'] };
     const client = new CloudTrailClient(clientConfig(ctx));
     const resources = [];
     for (const service of SAMPLED_SERVICES) {
       const raws: string[] = [];
-      for await (const page of paginateLookupEvents({ client }, { LookupAttributes: [{ AttributeKey: 'EventSource', AttributeValue: service }], MaxResults: 50 })) {
+      for await (const page of checkedPages(paginateLookupEvents({ client, stopOnSameToken: true }, { LookupAttributes: [{ AttributeKey: 'EventSource', AttributeValue: service }], MaxResults: 50 }, ctx.signal ? { abortSignal: ctx.signal } : {}), ctx.signal)) {
         for (const ev of page.Events ?? []) if (ev.CloudTrailEvent) raws.push(ev.CloudTrailEvent);
         if (raws.length >= ctx.cloudTrailSample) break;
       }

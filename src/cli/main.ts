@@ -3,7 +3,7 @@
 
      edgepq scan <dir | plan.json | state.json> [--out DIR] [--fail-on SEV]
      edgepq aws [--accounts a,b] [--org] [--regions r,s] [--role-name N]
-                [--external-id X] [--cloudtrail-sample N] [--out DIR] [--fail-on SEV]
+                [--external-id X] [--cloudtrail-sample N] [--coverage strict|advisory] [--out DIR] [--fail-on SEV]
      edgepq verify <host[:port]> [--servername NAME] [--json]
      edgepq rules
 
@@ -25,7 +25,7 @@ export type Io = { out: (s: string) => void; err: (s: string) => void };
 const USAGE = `usage:
   edgepq scan <dir | plan.json | state.json> [--out DIR] [--fail-on SEV]
   edgepq aws [--accounts a,b] [--org] [--regions r,s] [--role-name N] [--external-id X]
-             [--cloudtrail-sample N] [--out DIR] [--fail-on SEV]
+             [--cloudtrail-sample N] [--coverage strict|advisory] [--out DIR] [--fail-on SEV]
   edgepq verify <host[:port]> [--servername NAME] [--json] [--timeout MS]
   edgepq rules
 
@@ -33,9 +33,13 @@ const USAGE = `usage:
   --fail-on SEV    exit 1 when a failed finding is at or above SEV
                    (critical, high, medium, low, info)
 
+AWS coverage defaults to strict: partial or failed collection exits 2.
+--coverage advisory permits partial collection; zero usable collection still exits 2.
+A fully enumerated empty AWS scope is complete. Commercial aws partition only.
+
 Exit codes: scan and aws exit 0, 1 when --fail-on is reached, 2 on bad input or
 when nothing was found to check. verify exits 0 when the endpoint selects or
-supports a hybrid group, 1 when it is classical or TLS 1.2 only, 2 when the
+completes a real hybrid key exchange, 1 when it is classical or TLS 1.2 only, 2 when the
 answer is inconclusive or the host could not be reached.`;
 
 class UsageError extends Error {}
@@ -96,6 +100,7 @@ function summary(report: ScanReport, written: Written, outDir: string): string {
     if (gaps) lines.push(`  not inspected: ${gaps} item(s) (remote modules, dynamic blocks, count expressions or parse errors; see the report)`);
     if (assumed) lines.push(`  assumed: ${assumed} value(s) taken from variable defaults; see the report`);
   }
+  if (report.input.kind === 'aws') lines.push(`  collection: ${report.input.status ?? 'unknown'} (${report.input.coverage?.filter((c) => c.status === 'complete').length ?? 0} completed account/region/service scope(s))`);
   if (report.input.kind === 'aws' && report.input.not_checked.length) lines.push(`  not checked: ${report.input.not_checked.length} account/region/service combination(s); see the report`);
   if (written.patches) lines.push(`  patches: ${written.patches} written, never applied${written.perFixFilesOmitted ? ' (combined patches only: more than 200 fixes)' : ''}`);
   for (const s of written.patchesSkipped) lines.push(`  patch not written: ${s.ruleId} ${s.address}: ${s.reason}`);
@@ -171,13 +176,18 @@ async function scan(args: string[], io: Io): Promise<number> {
 async function aws(args: string[], io: Io): Promise<number> {
   const { values } = options({ args, options: {
     accounts: { type: 'string' }, org: { type: 'boolean' }, regions: { type: 'string' }, 'role-name': { type: 'string' },
-    'external-id': { type: 'string' }, 'cloudtrail-sample': { type: 'string' }, out: { type: 'string' }, 'fail-on': { type: 'string' }, quiet: { type: 'boolean' },
+    'external-id': { type: 'string' }, 'cloudtrail-sample': { type: 'string' }, out: { type: 'string' }, 'fail-on': { type: 'string' }, quiet: { type: 'boolean' }, coverage: { type: 'string' }, timeout: { type: 'string' },
   } });
   const threshold = parseThreshold(values['fail-on']);
   const outDir = values.out ?? 'edgepq-out';
+  const timeoutMs = values.timeout === undefined ? 120000 : Number(values.timeout);
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 3600000) throw new UsageError('--timeout must be between 1 and 3600000 milliseconds');
+  const coverage = values.coverage ?? 'strict';
+  if (coverage !== 'strict' && coverage !== 'advisory') throw new UsageError('--coverage must be strict or advisory');
   const sample = values['cloudtrail-sample'] === undefined ? undefined : Number(values['cloudtrail-sample']);
-  if (sample !== undefined && (!Number.isInteger(sample) || sample < 0)) throw new UsageError('--cloudtrail-sample must be a whole number');
+  if (sample !== undefined && (!Number.isInteger(sample) || sample < 0 || sample > 10000)) throw new UsageError('--cloudtrail-sample must be a whole number from 0 to 10000');
   const { report } = await reportForAws({
+    timeoutMs,
     ...(values.accounts ? { accounts: values.accounts.split(',').map((s) => s.trim()).filter(Boolean) } : {}),
     ...(values.org ? { organization: true } : {}),
     ...(values.regions ? { regions: values.regions.split(',').map((s) => s.trim()).filter(Boolean) } : {}),
@@ -188,6 +198,11 @@ async function aws(args: string[], io: Io): Promise<number> {
   }, await loadRules());
   const written = await writeOutputs(report, outDir);
   io.out(summary(report, written, outDir));
+  if (report.input.kind === 'aws' && (report.input.status === 'failed' || report.input.status !== 'complete' && coverage === 'strict')) {
+    io.err(`edgepq: AWS collection ${report.input.status ?? 'unknown'}; see coverage and not_checked in the report`);
+    return 2;
+  }
+  if (report.input.kind === 'aws' && report.input.status === 'partial') io.err('edgepq: advisory continuation with partial AWS coverage');
   return threshold && severityAtOrAbove(report, threshold) > 0 ? 1 : 0;
 }
 
@@ -197,12 +212,12 @@ async function verify(args: string[], io: Io): Promise<number> {
   if (!target) throw new UsageError('verify needs a host or host:port');
   const { host, port } = parseHostPort(target);
   const timeoutMs = values.timeout === undefined ? 5000 : Number(values.timeout);
-  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new UsageError('--timeout must be a whole number of milliseconds');
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 60000) throw new UsageError('--timeout must be a whole number of milliseconds');
   const result = await probe({ host, port, ...(values.servername ? { servername: values.servername } : {}) }, { timeoutMs });
   /* The verdict is the exit code, so verify can gate a pipeline: 0 for a
      hybrid group selected or supported, 1 for classical or TLS 1.2 only, 2
      when the answer is inconclusive or the host was not reached. */
-  const code = result.verdict === 'hybrid_selected' || result.verdict === 'hybrid_supported_not_preferred' ? 0
+  const code = result.verdict === 'hybrid_selected' || result.verdict === 'hybrid_supported_not_preferred' || result.verdict === 'hybrid_supported_preference_unknown' ? 0
     : result.verdict === 'classical_only' || result.verdict === 'tls_1_2_only' ? 1 : 2;
   if (values.json) { io.out(JSON.stringify(result, null, 2)); return code; }
   const b = result.browser_offer;
@@ -221,6 +236,12 @@ async function verify(args: string[], io: Io): Promise<number> {
 /* host, host:port, [v6], [v6]:port. A bare IPv6 literal without brackets
    cannot carry a port, which is how the last colon is disambiguated. */
 export function parseHostPort(target: string): { host: string; port: number } {
+  const result = parseHostPortUnchecked(target);
+  if (!Number.isInteger(result.port) || result.port < 1 || result.port > 65535) throw new UsageError('port must be between 1 and 65535');
+  return result;
+}
+
+function parseHostPortUnchecked(target: string): { host: string; port: number } {
   const bracketed = /^\[([^\]]+)\](?::(\d{1,5}))?$/.exec(target);
   if (bracketed) return { host: bracketed[1] as string, port: bracketed[2] ? Number(bracketed[2]) : 443 };
   const plain = /^([^:]+)(?::(\d{1,5}))?$/.exec(target);

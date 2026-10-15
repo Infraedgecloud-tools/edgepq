@@ -12,6 +12,8 @@ import tls from 'node:tls';
 export type HandshakeResult = {
   group: string;
   completed: boolean;
+  authenticated?: boolean;
+  authentication_error?: string;
   protocol?: string;
   cipher?: string;
   error?: string;
@@ -28,7 +30,7 @@ export const HANDSHAKE_GROUPS: readonly string[] = ['X25519MLKEM768', 'SecP256r1
 const describeCode = (code: string): string => {
   const m = /^ERR_SSL_SSL\/TLS_ALERT_(.+)$/.exec(code);
   if (m) return `alert ${(m[1] as string).toLowerCase()} (the server refused this group)`;
-  if (code === 'ECONNRESET') return 'connection reset by the server (it refused this group)';
+  if (code === 'ECONNRESET') return 'connection reset during handshake (reason unknown)';
   return code;
 };
 
@@ -55,12 +57,16 @@ export function tryHandshake(host: string, port: number, servername: string, gro
     const finish = (r: HandshakeResult) => {
       if (done) return;
       done = true;
+      clearTimeout(deadline);
       socket.destroy();
       resolve(r);
     };
+    const deadline = setTimeout(() => finish({ group, completed: false, error: `no handshake within ${timeoutMs} ms` }), timeoutMs);
     socket.once('secureConnect', () => {
       const cipher = socket.getCipher();
-      finish({ group, completed: true, protocol: socket.getProtocol() ?? 'unknown', cipher: cipher.name });
+      const identityError = socket.authorized ? tls.checkServerIdentity(servername, socket.getPeerCertificate()) : undefined;
+      const authenticated = socket.authorized && !identityError;
+      finish({ group, completed: true, authenticated, ...(!authenticated ? { authentication_error: (identityError as NodeJS.ErrnoException | undefined)?.code ?? String(socket.authorizationError ?? 'certificate not authenticated') } : {}), protocol: socket.getProtocol() ?? 'unknown', cipher: cipher.name });
     });
     socket.once('timeout', () => finish({ group, completed: false, error: `no handshake within ${timeoutMs} ms` }));
     /* OpenSSL's message is several lines of internal detail; the code says what happened. */

@@ -28,6 +28,8 @@ test('server preferring a hybrid group: hybrid_selected', async () => {
   assert.equal(r.browser_offer.group?.name, 'X25519MLKEM768');
   assert.equal(r.browser_offer.tls_version, '1.3');
   assert.equal(r.reachable, true);
+  assert.equal(r.handshakes.find((h) => h.group === 'X25519MLKEM768')?.authenticated, false);
+  assert.ok(r.handshakes.find((h) => h.group === 'X25519MLKEM768')?.authentication_error);
   assert.equal(r.handshakes.find((h) => h.group === 'X25519MLKEM768')?.completed, true);
   assert.ok(!r.evidence_notes.some((n) => n.startsWith('Disagreement')), r.evidence_notes.join('\n'));
 });
@@ -119,9 +121,9 @@ test('decide: a raw hybrid selection that no real-key handshake confirms is inco
 
 test('decide: real-key hybrid handshakes outrank a raw hello that got TLS 1.2 or nothing', () => {
   const tls12 = decide(sh({ tls_version: '1.2' }), { outcome: 'timeout' }, [hs('X25519MLKEM768', true), hs('X25519', true)]);
-  assert.equal(tls12.verdict, 'hybrid_supported_not_preferred');
+  assert.equal(tls12.verdict, 'hybrid_supported_preference_unknown');
   const blocked = decide({ outcome: 'error', error: 'ECONNRESET' }, { outcome: 'error', error: 'ECONNRESET' }, [hs('X25519MLKEM768', true), hs('P-256', true)]);
-  assert.equal(blocked.verdict, 'hybrid_supported_not_preferred');
+  assert.equal(blocked.verdict, 'hybrid_supported_preference_unknown');
   assert.match(blocked.notes.join('\n'), /was not observed/);
 });
 
@@ -132,8 +134,8 @@ test('decide: a pure ML-KEM group is never called classical', () => {
 
 test('decide: a raw hybrid selection without a hybrid-capable Node is reported as resting on the hello alone', () => {
   const d = decide(sh({ group: { code: 4588, name: 'X25519MLKEM768' } }), sh({ group: { code: 4588, name: 'X25519MLKEM768' } }), [hs('X25519MLKEM768', false, { not_testable: true }), hs('X25519', true)]);
-  assert.equal(d.verdict, 'hybrid_selected');
-  assert.match(d.notes.join('\n'), /rests on the hand-built hellos alone/);
+  assert.equal(d.verdict, 'inconclusive');
+  assert.match(d.notes.join('\n'), /do not prove a completed hybrid session/);
 });
 
 test('decide: an alert with no testable hybrid group is inconclusive, not classical', () => {
@@ -187,7 +189,7 @@ test('decide: hybrid handshakes that timed out are inconclusive, not classical',
   ];
   const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 29, name: 'X25519' } }, { outcome: 'timeout', error: 'no ServerHello within 5000 ms' }, hs);
   assert.equal(r.verdict, 'inconclusive');
-  assert.ok(r.notes.some((n) => n.includes('none was refused')));
+  assert.ok(r.notes.some((n) => n.includes('not conclusively refused')));
 });
 
 test('decide: a P-384 selection the controls do not cover is not a disagreement', async () => {
@@ -213,4 +215,35 @@ test('decide: a selection the controls cover, with every control refused, is a d
   ];
   const r = decide({ outcome: 'server_hello', tls_version: '1.3', group: { code: 23, name: 'secp256r1' } }, { outcome: 'alert', alert: { level: 2, description: 40, name: 'handshake_failure' } }, hs);
   assert.ok(r.notes.some((n) => n.startsWith('Disagreement') && n.includes('secp256r1')), r.notes.join('\n'));
+});
+
+
+
+test('mixed transient and refused hybrid handshakes remain inconclusive', () => {
+  const r = decide(sh({ group: { code: 29, name: 'x25519' } }), { outcome: 'alert' }, [hs('X25519MLKEM768', false, { error: 'alert handshake_failure' }), hs('SecP256r1MLKEM768', false, { error: 'no handshake within 50 ms' }), hs('X25519', true)]);
+  assert.equal(r.verdict, 'inconclusive');
+});
+
+test('slow trickle peer cannot reset the absolute deadline', async () => {
+  const server = net.createServer((socket) => {
+    socket.write(Buffer.from([22, 3, 3, 255, 250])); // valid header, incomplete long flight
+    const timer = setInterval(() => socket.write(Buffer.from([0])), 15);
+    socket.on('error', () => {});
+    socket.once('close', () => clearInterval(timer));
+  });
+  const started = Date.now();
+  const r = await probe({ host: '127.0.0.1', port: await listen(server) }, { timeoutMs: 80 });
+  assert.equal(r.verdict, 'inconclusive');
+  assert.equal(r.browser_offer.outcome, 'timeout');
+  assert.ok(Date.now() - started < 1500);
+});
+
+test('oversized server flights are bounded', async () => {
+  const server = net.createServer((socket) => {
+    socket.on('error', () => {});
+    socket.write(Buffer.alloc(70000));
+  });
+  const r = await probe({ host: '127.0.0.1', port: await listen(server) }, { timeoutMs: 80 });
+  assert.equal(r.verdict, 'inconclusive');
+  assert.match(r.browser_offer.error ?? '', /limit|record|version|unexpected|length/i);
 });

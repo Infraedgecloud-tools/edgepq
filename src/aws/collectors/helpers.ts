@@ -1,3 +1,4 @@
+import { AWS_LIMITS } from '../bounds.ts';
 import type { AttrValue, Resource } from '../../engine/types.ts';
 import type { CollectorContext } from '../types.ts';
 
@@ -10,5 +11,5 @@ export function resource(ctx: CollectorContext, type: string, arn: string, attrs
 }
 
 export function clientConfig(ctx: CollectorContext, region = ctx.scope.region) {
-  return { region, ...(ctx.credentials ? { credentials: ctx.credentials } : {}) };
+  return { ...AWS_LIMITS, region, ...(ctx.credentials ? { credentials: ctx.credentials } : {}) };
 }

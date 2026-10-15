@@ -1,3 +1,4 @@
+import { checkedPages } from '../bounds.ts';
 import { LambdaClient, paginateListFunctions } from '@aws-sdk/client-lambda';
 import type { Collector } from '../types.ts';
 import { clientConfig, resource } from './helpers.ts';
@@ -7,7 +8,7 @@ export const lambda: Collector = {
   async run(ctx) {
     const client = new LambdaClient(clientConfig(ctx));
     const resources = [];
-    for await (const page of paginateListFunctions({ client }, {})) {
+    for await (const page of checkedPages(paginateListFunctions({ client, stopOnSameToken: true }, {}, ctx.signal ? { abortSignal: ctx.signal } : {}), ctx.signal)) {
       for (const f of page.Functions ?? []) {
         if (!f.FunctionArn) continue;
         resources.push(resource(ctx, 'aws_lambda_function', f.FunctionArn, {
