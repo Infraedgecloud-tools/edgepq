@@ -15,7 +15,10 @@ import { resourcesFromTerraformJson, type PlanScan } from '../adapters/plan.ts';
 import { parseHcl } from './hcl-parser.ts';
 
 /* Terraform also loads *.tf.json, whose shape is what hcl2json produces. */
-const parseAny: typeof parseHcl = (filename, contents) => (filename.endsWith('.json') ? Promise.resolve(JSON.parse(contents) as unknown) : parseHcl(filename, contents));
+function parseJson(contents: string): unknown {
+  try { return JSON.parse(contents) as unknown; } catch { throw new Error('invalid JSON input (source text omitted)'); }
+}
+const parseAny: typeof parseHcl = (filename, contents) => (filename.endsWith('.json') ? Promise.resolve(parseJson(contents)) : parseHcl(filename, contents));
 
 export type TerraformInput = { kind: 'hcl'; scan: HclScan; files: string[] } | { kind: 'json'; scan: PlanScan; file: string };
 
@@ -32,7 +35,7 @@ export async function readTerraform(target: string): Promise<TerraformInput> {
     return readFile(path, 'utf8');
   };
   if (s.isFile()) {
-    const doc: unknown = JSON.parse(await readBounded(target));
+    const doc: unknown = parseJson(await readBounded(target));
     return { kind: 'json', scan: resourcesFromTerraformJson(doc), file: target };
   }
 

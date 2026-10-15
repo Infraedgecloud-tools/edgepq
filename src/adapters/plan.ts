@@ -45,9 +45,11 @@ function fromPlan(changes: unknown[]): PlanScan {
     if (!isObj(change.after) && change.after_unknown !== true) throw new Error('malformed Terraform after values');
     if (rc.type.startsWith('aws_') && rc.provider_name !== undefined && (typeof rc.provider_name !== 'string' || !['registry.terraform.io/hashicorp/aws', 'registry.opentofu.org/hashicorp/aws'].includes(rc.provider_name))) throw new Error('unsupported provider for AWS resource assessment');
     validateMask(change.after_unknown, change.after);
+    validateMask(change.after_sensitive, change.after);
     const after = isObj(change.after) ? change.after : {};
-    const unknown = change.after_unknown === true ? ['*'] : unknownPaths(change.after_unknown, '');
-    out.resources.push({ type: rc.type, address: rc.address, attrs: withoutNulls(after) as Resource['attrs'], unknown, origin: { kind: 'plan' } });
+    const sensitive = change.after_sensitive;
+    const unknown = [...(change.after_unknown === true ? ['*'] : unknownPaths(change.after_unknown, '')), ...(sensitive === true ? ['*'] : unknownPaths(sensitive, ''))];
+    out.resources.push({ type: rc.type, address: rc.address, attrs: withoutNulls(redactSensitive(after, sensitive) as Json) as Resource['attrs'], unknown, origin: { kind: 'plan' } });
   }
   return out;
 }
@@ -63,7 +65,9 @@ function fromState(root: Json): PlanScan {
       if (!isObj(r.values)) throw new Error('malformed Terraform state values');
       if (r.type.startsWith('aws_') && r.provider_name !== undefined && (typeof r.provider_name !== 'string' || !['registry.terraform.io/hashicorp/aws', 'registry.opentofu.org/hashicorp/aws'].includes(r.provider_name))) throw new Error('unsupported provider for AWS resource assessment');
       const values = isObj(r.values) ? r.values : {};
-      out.resources.push({ type: r.type, address: r.address, attrs: withoutNulls(values) as { [k: string]: AttrValue }, unknown: [], origin: { kind: 'plan' } });
+      validateMask(r.sensitive_values, r.values);
+      const unknown = r.sensitive_values === true ? ['*'] : unknownPaths(r.sensitive_values, '');
+      out.resources.push({ type: r.type, address: r.address, attrs: withoutNulls(redactSensitive(values, r.sensitive_values) as Json) as { [k: string]: AttrValue }, unknown, origin: { kind: 'plan' } });
     }
     for (const child of Array.isArray(mod.child_modules) ? mod.child_modules : []) { if (!isObj(child)) throw new Error('malformed Terraform child module'); walk(child, depth + 1); }
   };
@@ -115,4 +119,23 @@ function validateMask(mask: unknown, value: unknown, depth = 0): void {
     return;
   }
   throw new Error('malformed Terraform unknown/sensitive mask');
+}
+
+
+/* Sensitivity is an information boundary, not merely a display preference.
+   Remove marked values before resources can reach rules, CBOMs or renderers. */
+function redactSensitive(value: unknown, mask: unknown, depth = 0): unknown {
+  if (depth > 64) throw new Error('Terraform sensitivity depth exceeds 64');
+  if (mask === true) return isObj(value) ? {} : undefined;
+  if (Array.isArray(value)) return value.map((child, i) => redactSensitive(child, Array.isArray(mask) ? mask[i] : undefined, depth + 1) ?? null);
+  if (isObj(value)) {
+    const out: Json = {};
+    for (const [key, child] of Object.entries(value)) {
+      const childMask = isObj(mask) ? mask[key] : undefined;
+      if (childMask === true) continue;
+      out[key] = redactSensitive(child, childMask, depth + 1);
+    }
+    return out;
+  }
+  return value;
 }

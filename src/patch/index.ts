@@ -24,7 +24,7 @@ export type Patch = {
 };
 export type Skipped = { ruleId: string; address: string; file?: string; reason: string };
 
-const APPLY_WITH = 'EdgePQ does not apply patches. Review, then apply with: git apply <file>, then run terraform fmt (an inserted line may re-align its neighbours)';
+const APPLY_WITH = 'EdgePQ does not apply patches. Review, then apply with: git apply --unidiff-zero <file>, then run terraform fmt (an inserted line may re-align its neighbours)';
 
 function header(p: { ruleId: string; title: string; address: string; safety: string; note?: string }): string {
   const lines = [`# ${p.ruleId}: ${p.title}`, `# Resource: ${p.address}`, `# Safety: ${p.safety}`];
@@ -41,6 +41,7 @@ export function buildPatchesWithSkips(findings: Finding[], files: { name: string
     const file = f.resource.origin.file;
     const source = files.find((x) => x.name === file)?.contents;
     const skip = (reason: string) => skipped.push({ ruleId: f.rule.id, address: f.resource.address, file, reason });
+    if (!/^[A-Za-z0-9_./-]+$/.test(file) || file.startsWith('/') || file.split('/').includes('..') || /[\x00-\x1f\x7f]/.test(f.resource.address)) { skip('resource or file identity cannot be represented safely in a patch'); continue; }
     if (source === undefined) { skip('source file was not supplied'); continue; }
     /* The address may carry a module or directory prefix; the block in the
        file is still type "name". */
@@ -63,9 +64,11 @@ export function buildPatchesWithSkips(findings: Finding[], files: { name: string
       fix.note,
     ].filter(Boolean);
     const note = reasons.length ? reasons.join(' ') : undefined;
+    const diff = unifiedDiff(source, applyEdits(source, plan.edits), file, file, 0, span(plan.edits));
+    if (!assignmentOnly(diff, fix)) { skip('changed lines include comments or unrelated source text; edit the attribute manually'); continue; }
     const patch: Patch = {
       ruleId: f.rule.id, address: f.resource.address, file, safety,
-      diff: header({ ruleId: f.rule.id, title: f.rule.title, address: f.resource.address, safety, ...(note ? { note } : {}) }) + unifiedDiff(source, applyEdits(source, plan.edits), file, file, 3, span(plan.edits)),
+      diff: header({ ruleId: f.rule.id, title: f.rule.title, address: f.resource.address, safety, ...(note ? { note } : {}) }) + diff,
       edit: { type, name, fix, source },
     };
     if (note) patch.note = note;
@@ -105,9 +108,20 @@ export function combinePatches(patches: Patch[], opts: { safety: 'auto' | 'all' 
       edits.push(...plan.edits);
       included.push(p);
     }
-    if (edits.length) body += unifiedDiff(source, applyEdits(source, edits), file, file, 3, span(edits));
+    if (edits.length) body += unifiedDiff(source, applyEdits(source, edits), file, file, 0, span(edits));
   }
   const lines = included.map((p) => `# - ${p.ruleId} ${p.address} (${p.safety})`);
   const head = included.length ? `# EdgePQ combined patch: ${included.length} change${included.length === 1 ? '' : 's'}\n${lines.join('\n')}\n# ${APPLY_WITH}\n` : '';
   return { diff: head + body, included, skipped };
+}
+
+
+/* Zero-context diffs avoid copying neighbouring configuration into reports.
+   A changed line itself must contain only the intended literal assignment. */
+function assignmentOnly(diff: string, fix: SetAttributeFix): boolean {
+  const allowed = new Set([fix.attr, ...Object.keys(fix.also_set ?? {})].map((path) => path.split('.').pop()));
+  return diff.split('\n').filter((line) => /^[+-]/.test(line) && !/^(---|\+\+\+)/.test(line)).every((line) => {
+    const match = /^\s*([A-Za-z_]\w*)\s*=\s*"(?:[^"\\]|\\.)*"\s*$/.exec(line.slice(1));
+    return match !== null && allowed.has(match[1]);
+  });
 }

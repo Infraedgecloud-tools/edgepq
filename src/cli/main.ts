@@ -20,6 +20,8 @@ import { loadRules, reportForAws, reportForTerraform } from '../node/report.ts';
 import { writeOutputs, type Written } from './write.ts';
 import { probe } from '../probe/index.ts';
 
+const display = (s: string): string => s.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ');
+
 export type Io = { out: (s: string) => void; err: (s: string) => void };
 
 const USAGE = `usage:
@@ -76,11 +78,11 @@ function failedLines(report: ScanReport, limit = 12): string[] {
     .filter((f) => f.status === 'fail')
     .sort((a, b) => SEVERITY_ORDER.indexOf(a.rule.severity) - SEVERITY_ORDER.indexOf(b.rule.severity) || a.resource.address.localeCompare(b.resource.address));
   const lines = failed.slice(0, limit).flatMap((f) => {
-    const head = `  ${f.rule.severity.padEnd(8)} ${f.rule.id.padEnd(13)} ${f.resource.address}`;
+    const head = `  ${f.rule.severity.padEnd(8)} ${f.rule.id.padEnd(13)} ${display(f.resource.address)}`;
     if (f.fix?.kind !== 'set-attribute') return [head, `           ${f.fix ? 'fix: see the report' : 'no fix is offered; see the report'}`];
     const observed = f.observed[f.fix.attr];
-    const current = observed?.value === undefined ? 'unset' : `${String(observed.value)}${observed.defaulted ? ' (default)' : ''}`;
-    return [head, `           ${f.fix.attr}: ${current} → ${f.fix.value}`];
+    const current = observed?.value === undefined ? 'unset' : `${display(String(observed.value))}${observed.defaulted ? ' (default)' : ''}`;
+    return [head, `           ${f.fix.attr}: ${current} → ${display(f.fix.value)}`];
   });
   if (failed.length > limit) lines.push(`  ... and ${failed.length - limit} more; see the report`);
   return lines;
@@ -103,8 +105,8 @@ function summary(report: ScanReport, written: Written, outDir: string): string {
   if (report.input.kind === 'aws') lines.push(`  collection: ${report.input.status ?? 'unknown'} (${report.input.coverage?.filter((c) => c.status === 'complete').length ?? 0} completed account/region/service scope(s))`);
   if (report.input.kind === 'aws' && report.input.not_checked.length) lines.push(`  not checked: ${report.input.not_checked.length} account/region/service combination(s); see the report`);
   if (written.patches) lines.push(`  patches: ${written.patches} written, never applied${written.perFixFilesOmitted ? ' (combined patches only: more than 200 fixes)' : ''}`);
-  for (const s of written.patchesSkipped) lines.push(`  patch not written: ${s.ruleId} ${s.address}: ${s.reason}`);
-  lines.push(`  outputs: ${outDir}/ (${written.files.filter((f) => !f.includes('/')).join(', ')}${written.patches ? ', patches/' : ''})`);
+  for (const s of written.patchesSkipped) lines.push(`  patch not written: ${display(s.ruleId)} ${display(s.address)}: ${display(s.reason)}`);
+  lines.push(`  outputs: ${display(outDir)}/ (${written.files.filter((f) => !f.includes('/')).join(', ')}${written.patches ? ', patches/' : ''})`);
   return lines.join('\n');
 }
 
@@ -115,6 +117,9 @@ function parseThreshold(v: string | undefined): Severity | undefined {
 }
 
 export async function main(argv: string[], io: Io): Promise<number> {
+  const terminal = io;
+  const clean = (s: string) => s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, '');
+  io = { out: (s) => terminal.out(clean(s)), err: (s) => terminal.err(clean(s)) };
   try {
     const [command, ...rest] = argv;
     switch (command) {
@@ -133,10 +138,10 @@ export async function main(argv: string[], io: Io): Promise<number> {
     }
   } catch (e) {
     if (e instanceof UsageError) {
-      io.err(`edgepq: ${e.message}\n${USAGE}`);
+      io.err(`edgepq: ${display(e.message)}\n${USAGE}`);
       return 2;
     }
-    io.err(`edgepq: ${(e as Error).message}`);
+    io.err(`edgepq: ${display((e as Error).message)}`);
     return 2;
   }
 }
@@ -167,7 +172,7 @@ async function scan(args: string[], io: Io): Promise<number> {
      outputs are still written, but the exit code says the tree was not covered. */
   const unreadable = report.input.kind === 'hcl' ? report.input.notes.filter((n) => n.kind === 'parse-error') : [];
   if (unreadable.length) {
-    for (const n of unreadable) if (n.kind === 'parse-error') io.err(`edgepq: ${n.file} did not parse: ${n.message}`);
+    for (const n of unreadable) if (n.kind === 'parse-error') io.err(`edgepq: ${display(n.file)} did not parse: ${display(n.message)}`);
     return 2;
   }
   return threshold && severityAtOrAbove(report, threshold) > 0 ? 1 : 0;
@@ -229,7 +234,7 @@ async function verify(args: string[], io: Io): Promise<number> {
     ...result.handshakes.map((h) => `  handshake ${h.group}: ${h.not_testable ? 'not testable on this Node' : h.completed ? `completed (${h.protocol ?? ''} ${h.cipher ?? ''})`.trim() : `failed${h.error ? ` (${h.error})` : ''}`}`),
     ...result.evidence_notes.map((n) => `  note: ${n}`),
   ];
-  io.out(lines.join('\n'));
+  io.out(lines.map(display).join('\n'));
   return code;
 }
 
