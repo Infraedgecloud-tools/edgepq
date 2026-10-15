@@ -4,15 +4,7 @@ All notable changes to EdgePQ. The format follows [Keep a Changelog](https://kee
 and the project uses [Semantic Versioning](https://semver.org/). Rule IDs never change
 meaning; a rule that needs different semantics gets a new ID.
 
-## Unreleased
-
-- Discover enabled regions per AWS account; report actual collection scopes and complete/partial/failed status. Default strict coverage fails incomplete scans; explicit advisory mode permits partial coverage only.
-- Stage and replace owned outputs so rescans cannot leave stale patches. Refuse unowned output contents, symlinks and collisions; document interruption recovery.
-- Bound TLS deadlines and server-flight bytes, retain uncertainty for placeholder shares and mixed transient failures, and report certificate authentication separately from key exchange.
-- Reject incomplete/malformed Terraform JSON, unknown actions and unsupported major formats; bound local input size, count and depth.
-- Correct installation claims: the v0.1.0 GitHub tarball is available; named npm registry publication is unverified/unavailable in the release inspection environment.
-
-## [Unreleased]
+## [0.2.0] - 2026-10-15
 
 ### Added
 - `edgepq-findings.sarif` beside the other outputs: SARIF 2.1.0 with one result per failed,
@@ -39,6 +31,9 @@ meaning; a rule that needs different semantics gets a new ID.
   that curve alone is not reported as refusing every control.
 
 ### Fixed
+- Discover enabled regions per AWS account; report actual collection scopes and complete/partial/failed status. Default strict coverage fails incomplete scans; explicit advisory mode permits partial coverage only.
+- Stage and replace owned outputs so rescans cannot leave stale patches. Refuse unowned output contents, symlinks and collisions; document interruption recovery.
+- Correct installation claims: the v0.1.0 GitHub tarball is available; named npm registry publication is unverified/unavailable in the release inspection environment.
 - APIGW-KX-001 offered `SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09` as the fix for a
   FIPS TLS 1.3-only domain: the developer guide's spelling, which the API rejects. The fix
   is now `SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09`. APIGW-KX-003 and APIGW-KX-004 had no
@@ -51,6 +46,12 @@ meaning; a rule that needs different semantics gets a new ID.
   control then refused) compared IANA group names with OpenSSL ones and never fired.
 - Usage errors name the option that went wrong (`unknown option --outdir`, `--out needs a
   value`) instead of printing Node's `parseArgs` text.
+
+### Security
+- Bound TLS deadlines and server-flight bytes, retain uncertainty for placeholder shares and mixed transient failures, and report certificate authentication separately from key exchange.
+- Reject incomplete/malformed Terraform JSON, unknown actions and unsupported major formats; bound local input size, count and depth.
+- An empty explicit account or region scope, and unexpected positional arguments, are
+  rejected before any collection starts rather than silently widening the run.
 
 ## [0.1.0] - 2026-10-14
 
