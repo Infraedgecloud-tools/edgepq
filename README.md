@@ -22,7 +22,7 @@ answers. Nothing is ever called safe or compliant, and nothing is ever applied.
 ## Try it in a minute
 
 ```bash
-npm install -g https://github.com/Infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz
+npm install -g https://github.com/infraedgecloud-tools/edgepq/releases/download/v0.2.0/infraedgecloud-edgepq-0.2.0.tgz
 edgepq scan ./terraform
 ```
 
@@ -47,18 +47,26 @@ for a paste-and-see answer.
 
 | | |
 |---|---|
-| Release tarball | `npm install -g https://github.com/infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz` |
+| Release tarball | `npm install -g https://github.com/infraedgecloud-tools/edgepq/releases/download/v0.2.0/infraedgecloud-edgepq-0.2.0.tgz` |
 | From source | `git clone https://github.com/infraedgecloud-tools/edgepq && cd edgepq && npm ci && node bin/edgepq.js` (Node 22.18 or later runs the TypeScript directly) |
 
-As verified on 2026-10-15, v0.1.0 has a GitHub release tarball and `SHA256SUMS`. The tarball checksum, installation, `--help` and `--version` were checked on Linux with Node 24.19.0. The named npm registry package returned E404; registry installation is pending publication. The release tarball contains the released behaviour; the hardening described below is an unreleased candidate.
+Checked on 2026-10-20 against the published v0.2.0 release, on Linux arm64 with Node
+24.21.0: the tarball matches `SHA256SUMS`, installs into a clean prefix with
+`--ignore-scripts`, reports `0.2.0`, and scans a Terraform directory. This README
+describes v0.2.0; `main` is the same commit as the tag.
 
-The workflow requests a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). Verify it independently before relying on it; attestation verification was not executed in this environment:
+`npm install -g @infraedgecloud/edgepq` does not work yet — the registry answers 404.
+The package is unpublished until the scope and a publish token exist ([#12](https://github.com/infraedgecloud-tools/edgepq/issues/12)), so the release
+tarball is the install path.
+
+Each release tarball carries a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations).
+Verify it before you install:
 
 ```bash
-gh attestation verify infraedgecloud-edgepq-0.1.0.tgz --owner infraedgecloud-tools
+gh attestation verify infraedgecloud-edgepq-0.2.0.tgz --owner infraedgecloud-tools
 ```
 
-A successful GitHub release does not establish npm publication or prove that provenance verification succeeds.
+Checked today against the published tarball: it passes.
 
 ## Four surfaces, one engine
 
@@ -69,7 +77,7 @@ A successful GitHub release does not establish npm publication or prove that pro
 | `edgepq aws` | read-only API calls across accounts and regions | findings, report, CBOM, evidence |
 | `edgepq verify <host>` | a few TLS connections | the key exchange the endpoint selects, and whether a hybrid handshake completes |
 
-Current-source exit policy (unreleased): `scan` and `aws` exit 1 when a failed finding reaches `--fail-on SEV`, and 2 for input or execution failures. `scan` exits 2 for zero resources or HCL parse errors. A valid no-op JSON document is recognised, but its empty scope still exits 2 under the scan policy.
+Exit policy: `scan` and `aws` exit 1 when a failed finding reaches `--fail-on SEV`, and 2 for input or execution failures. `scan` exits 2 for zero resources or HCL parse errors. A valid no-op JSON document is recognised, but its empty scope still exits 2 under the scan policy.
 
 AWS collection has a separate `input.status`: `complete`, `partial`, or `failed`, with an account/region/service ledger in `input.coverage`. Enabled regions are discovered independently for each account. Global CloudFront collection runs once per account in `us-east-1`. Only the commercial `aws` partition is supported. Successful enumeration with no resources is complete; denied or unobserved scopes are not empty inventories.
 
@@ -100,7 +108,7 @@ In GitHub Actions, the SARIF file turns the failures into code scanning alerts o
 resource block, keyed on a fingerprint that survives a file move:
 
 ```yaml
-- run: npm install -g https://github.com/Infraedgecloud-tools/edgepq/releases/download/v0.1.0/infraedgecloud-edgepq-0.1.0.tgz
+- run: npm install -g https://github.com/infraedgecloud-tools/edgepq/releases/download/v0.2.0/infraedgecloud-edgepq-0.2.0.tgz
 - run: edgepq scan ./terraform --out edgepq-out
   continue-on-error: true
 - uses: github/codeql-action/upload-sarif@v3
@@ -148,13 +156,13 @@ with the evidence beside it. The real handshakes need Node 22.20 or later (the O
 that can negotiate the hybrid groups); on an older Node they are reported as not
 testable; placeholder ML-KEM shares, ServerHello selections and HelloRetryRequests alone cannot yield a successful hybrid verdict. Mixed transient and definitive hybrid failures remain inconclusive. Each connection has an absolute timeout (default 5000 ms, maximum 60000 ms); a raw server flight is capped at 65536 bytes. The full probe can take about three timeout periods.
 
-### Output ownership and recovery (unreleased)
+### Output ownership and recovery
 
-Use a fresh empty `--out` directory for the first candidate run. EdgePQ records its generated files in `.edgepq-output.json`; later runs replace the whole owned output, removing patches from older findings. A nonempty legacy output without a manifest, user additions, missing files, symlinks, and filename collisions are refused. Preserve or move those files and choose a new empty directory. Generated patches are suggestions and are never applied.
+Use a fresh empty `--out` directory for the first run. EdgePQ records its generated files in `.edgepq-output.json`; later runs replace the whole owned output, removing patches from older findings. A nonempty legacy output without a manifest, user additions, missing files, symlinks, and filename collisions are refused. Preserve or move those files and choose a new empty directory. Generated patches are suggestions and are never applied.
 
 Outputs are staged beside the destination, with an exclusive `<out>.edgepq-lock`, then directories are renamed. This is staged replacement, not a crash-atomic filesystem transaction. Process termination can leave the destination absent, a `.<name>-run-*-previous` backup, a staging directory, and a lock. No run publishes a mixture of old and new files. After confirming no EdgePQ process is active, preserve the prior directory if needed and choose a new empty output path. Remove only the identified generated staging/backup/lock paths after inspection. EdgePQ does not recursively delete an arbitrary chosen directory. Filesystem errors still exit 2; writable-path testing under an unprivileged account and Windows crash recovery remain release gates.
 
-### Input and evidence limits (unreleased)
+### Input and evidence limits
 
 JSON major format 1 is supported; newer minor fields are tolerated. Incomplete or errored plans, unknown actions, malformed managed resources, and malformed state structures fail rather than silently passing. `applyable: false` alone is not an error. Inputs are limited to 16 MiB per file, 64 MiB total, 10000 Terraform source files and 64 directory/value levels. Terraform input symlinks are refused. These are bounded checks, not a full Terraform evaluator: module instance expansion, dynamic blocks and unresolved expressions can remain unknown. No repository code is executed to resolve them.
 
